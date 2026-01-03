@@ -18,7 +18,7 @@ const (
 	colorGreen  = "\033[32m"
 	colorRed    = "\033[31m"
 	colorYellow = "\033[33m"
-	colorPurple = "\033[35m"
+	colorBlue   = "\033[1;34m"
 	colorGray   = "\033[90m"
 
 	iconPresent    = "✓"
@@ -136,7 +136,7 @@ func (r *Renderer) getPRStateIconAndColor(state core.PRState) (icon, color strin
 			icon = fallbackIcon
 		}
 	case core.PRStateMerged:
-		color = colorPurple
+		color = colorBlue
 		if r.useNerdFonts {
 			icon = nfIconMerged
 		} else {
