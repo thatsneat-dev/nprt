@@ -86,6 +86,11 @@ func (r *Renderer) renderPRStatusLine(status *core.PRStatus) {
 	text := fmt.Sprintf("PR #%d", status.Number)
 	url := fmt.Sprintf("https://github.com/NixOS/nixpkgs/pull/%d", status.Number)
 
+	// Add title in parentheses if available
+	if status.Title != "" {
+		text = fmt.Sprintf("%s (%s)", text, status.Title)
+	}
+
 	var displayText string
 	if r.useColor {
 		// Color the entire line (icon + text) with the state color
@@ -164,11 +169,13 @@ func (r *Renderer) formatChannelStatus(status core.ChannelStatus) string {
 func (r *Renderer) RenderJSON(status *core.PRStatus) error {
 	output := struct {
 		PR          int                  `json:"pr"`
+		Title       string               `json:"title,omitempty"`
 		State       core.PRState         `json:"state"`
 		MergeCommit string               `json:"merge_commit,omitempty"`
 		Channels    []core.ChannelResult `json:"channels"`
 	}{
 		PR:          status.Number,
+		Title:       status.Title,
 		State:       status.State,
 		MergeCommit: status.MergeCommit,
 		Channels:    status.Channels,

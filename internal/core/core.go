@@ -43,6 +43,7 @@ type ChannelResult struct {
 // PRStatus contains the full status of a PR including all channel results.
 type PRStatus struct {
 	Number      int             `json:"pr"`
+	Title       string          `json:"title,omitempty"`
 	State       PRState         `json:"state"`
 	MergeCommit string          `json:"merge_commit,omitempty"`
 	Channels    []ChannelResult `json:"channels"`
@@ -68,6 +69,7 @@ func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.C
 
 	status := &PRStatus{
 		Number:      pr.Number,
+		Title:       pr.Title,
 		State:       determinePRState(pr),
 		MergeCommit: pr.MergeCommitSHA,
 	}
