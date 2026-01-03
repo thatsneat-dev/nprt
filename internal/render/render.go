@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/core"
@@ -23,24 +24,32 @@ const (
 	iconPresent    = "✓"
 	iconNotPresent = "✗"
 	iconUnknown    = "?"
-	iconDraft      = "\uf4dd"
-	iconOpen       = "\uf407"
-	iconMerged     = "\uf407"
-	iconClosed     = "\uf4dc"
+
+	// Nerd Font icons
+	nfIconDraft  = "\uf4dd"
+	nfIconOpen   = "\uf407"
+	nfIconMerged = "\uf407"
+	nfIconClosed = "\uf4dc"
+
+	// Fallback dot icon
+	fallbackIcon = "●"
 )
 
 // Renderer outputs PR status in various formats.
 type Renderer struct {
 	useColor      bool
 	useHyperlinks bool
+	useNerdFonts  bool
 	writer        io.Writer
 }
 
 // NewRenderer creates a new Renderer with the given output settings.
+// Nerd Font icons are enabled by default; set NO_NERD_FONTS=1 to disable.
 func NewRenderer(writer io.Writer, useColor bool, useHyperlinks bool) *Renderer {
 	return &Renderer{
 		useColor:      useColor,
 		useHyperlinks: useHyperlinks,
+		useNerdFonts:  os.Getenv("NO_NERD_FONTS") == "",
 		writer:        writer,
 	}
 }
@@ -73,47 +82,62 @@ func (r *Renderer) RenderTable(status *core.PRStatus) error {
 }
 
 func (r *Renderer) renderPRStatusLine(status *core.PRStatus) {
-	icon := r.formatPRState(status.State)
+	icon, stateColor := r.getPRStateIconAndColor(status.State)
 	text := fmt.Sprintf("PR #%d", status.Number)
 	url := fmt.Sprintf("https://github.com/NixOS/nixpkgs/pull/%d", status.Number)
 
-	displayText := text
+	var displayText string
 	if r.useColor {
-		displayText = colorBold + text + colorReset
+		// Color the entire line (icon + text) with the state color
+		displayText = fmt.Sprintf("%s%s %s%s%s", stateColor, icon, colorBold, text, colorReset)
+	} else {
+		displayText = fmt.Sprintf("%s %s", icon, text)
 	}
 
 	if r.useHyperlinks {
+		// Wrap the entire display in a hyperlink
 		displayText = fmt.Sprintf("\033]8;;%s\033\\%s\033]8;;\033\\", url, displayText)
 	}
 
-	fmt.Fprintf(r.writer, "%s %s", icon, displayText)
+	fmt.Fprint(r.writer, displayText)
 }
 
-func (r *Renderer) formatPRState(state core.PRState) string {
+// getPRStateIconAndColor returns the icon and color for a given PR state.
+func (r *Renderer) getPRStateIconAndColor(state core.PRState) (icon, color string) {
 	switch state {
 	case core.PRStateDraft:
-		if r.useColor {
-			return colorGray + iconDraft + colorReset
+		color = colorGray
+		if r.useNerdFonts {
+			icon = nfIconDraft
+		} else {
+			icon = fallbackIcon
 		}
-		return iconDraft
 	case core.PRStateOpen:
-		if r.useColor {
-			return colorGreen + iconOpen + colorReset
+		color = colorGreen
+		if r.useNerdFonts {
+			icon = nfIconOpen
+		} else {
+			icon = fallbackIcon
 		}
-		return iconOpen
 	case core.PRStateMerged:
-		if r.useColor {
-			return colorPurple + iconMerged + colorReset
+		color = colorPurple
+		if r.useNerdFonts {
+			icon = nfIconMerged
+		} else {
+			icon = fallbackIcon
 		}
-		return iconMerged
 	case core.PRStateClosed:
-		if r.useColor {
-			return colorRed + iconClosed + colorReset
+		color = colorRed
+		if r.useNerdFonts {
+			icon = nfIconClosed
+		} else {
+			icon = fallbackIcon
 		}
-		return iconClosed
 	default:
-		return iconOpen
+		color = colorGreen
+		icon = fallbackIcon
 	}
+	return icon, color
 }
 
 func (r *Renderer) formatChannelStatus(status core.ChannelStatus) string {

@@ -5,6 +5,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -128,7 +129,8 @@ func (c *Client) GetPullRequest(ctx context.Context, number int) (*PullRequest, 
 
 	body, err := c.doRequest(ctx, http.MethodGet, path)
 	if err != nil {
-		if apiErr, ok := err.(*APIError); ok && apiErr.StatusCode == http.StatusNotFound {
+		var apiErr *APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
 			return nil, fmt.Errorf("PR #%d not found in NixOS/nixpkgs", number)
 		}
 		return nil, err

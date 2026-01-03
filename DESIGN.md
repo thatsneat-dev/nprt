@@ -35,7 +35,7 @@ https://github.com/NixOS/nixpkgs/pull/476497
 | Flag | Type | Description |
 |------|------|-------------|
 | `--channels` | comma-separated list | Override the default channel list |
-| `--no-color` | boolean | Disable ANSI color output |
+| `--color` | `auto`, `always`, `never` | Control ANSI color output (default: `auto`) |
 | `--json` | boolean | Output JSON instead of table |
 | `-h, --help` | boolean | Print usage information |
 | `--version` | boolean | Print version and exit |
@@ -124,10 +124,10 @@ When `--json` is specified, output follows this schema:
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success |
-| 1 | PR/repo issue (not found, not merged) |
+| 0 | Success (including unmerged PRs, which show all channels as not_present) |
+| 1 | General error (PR not found, no merge commit, network/API issues except 403) |
 | 2 | CLI usage error (bad arguments) |
-| 3 | Network/API failures (GitHub unreachable, auth, rate limit) |
+| 3 | GitHub rate limit or auth failure (HTTP 403) |
 
 ## Error Messages
 

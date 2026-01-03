@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// DefaultChannels is the set of nixpkgs channels checked when no --channels flag is provided.
 var DefaultChannels = []Channel{
 	{Name: "master", Branch: "master"},
 	{Name: "staging-next", Branch: "staging-next"},

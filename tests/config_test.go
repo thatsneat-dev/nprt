@@ -70,7 +70,7 @@ func TestParsePRInput_Invalid(t *testing.T) {
 func TestParseChannels_Default(t *testing.T) {
 	channels, err := config.ParseChannels("")
 	if err != nil {
-		t.Errorf("ParseChannels(\"\") returned error: %v", err)
+		t.Fatalf("ParseChannels(\"\") returned error: %v", err)
 	}
 	if len(channels) != len(config.DefaultChannels) {
 		t.Errorf("ParseChannels(\"\") returned %d channels, want %d", len(channels), len(config.DefaultChannels))
@@ -80,10 +80,10 @@ func TestParseChannels_Default(t *testing.T) {
 func TestParseChannels_Custom(t *testing.T) {
 	channels, err := config.ParseChannels("master,nixos-unstable")
 	if err != nil {
-		t.Errorf("ParseChannels returned error: %v", err)
+		t.Fatalf("ParseChannels returned error: %v", err)
 	}
 	if len(channels) != 2 {
-		t.Errorf("ParseChannels returned %d channels, want 2", len(channels))
+		t.Fatalf("ParseChannels returned %d channels, want 2", len(channels))
 	}
 	if channels[0].Name != "master" {
 		t.Errorf("First channel should be master, got %s", channels[0].Name)
@@ -103,7 +103,7 @@ func TestParseChannels_InvalidChannel(t *testing.T) {
 func TestParseChannels_Whitespace(t *testing.T) {
 	channels, err := config.ParseChannels(" master , nixos-unstable ")
 	if err != nil {
-		t.Errorf("ParseChannels returned error: %v", err)
+		t.Fatalf("ParseChannels returned error: %v", err)
 	}
 	if len(channels) != 2 {
 		t.Errorf("ParseChannels returned %d channels, want 2", len(channels))
