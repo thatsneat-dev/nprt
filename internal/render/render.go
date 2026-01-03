@@ -76,7 +76,7 @@ func (r *Renderer) RenderTable(status *core.PRStatus) error {
 	rowFmt := fmt.Sprintf("%%-%ds  %%s\n", maxNameLen)
 	for _, ch := range status.Channels {
 		icon := r.formatChannelStatus(ch.Status)
-		fmt.Fprintf(r.writer, rowFmt, ch.Name, icon)
+		fmt.Fprintf(r.writer, rowFmt, ch.Name, fmt.Sprintf("  %s  ", icon))
 	}
 
 	return nil
