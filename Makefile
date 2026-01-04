@@ -1,4 +1,4 @@
-.PHONY: build test format-check format clean version-bump
+.PHONY: build test format-check format vulncheck clean version-bump
 
 BINARY_NAME := nprt
 BUILD_DIR := bin
@@ -41,6 +41,15 @@ format:
 		gofumpt -w .; \
 	else \
 		echo "gofumpt not installed. Install with: go install mvdan.cc/gofumpt@latest"; \
+		exit 1; \
+	fi
+
+vuln-check:
+	@echo "Checking for vulnerabilities with govulncheck..."
+	@if command -v govulncheck >/dev/null 2>&1; then \
+		govulncheck ./...; \
+	else \
+		echo "govulncheck not installed. Install with: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
 		exit 1; \
 	fi
 
