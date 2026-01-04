@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/config"
@@ -60,7 +61,9 @@ func run() int {
 		fmt.Fprint(os.Stderr, usage)
 	}
 
-	flag.Parse()
+	if err := flag.CommandLine.Parse(reorderArgs(os.Args[1:])); err != nil {
+		return 2
+	}
 
 	if showVersion {
 		fmt.Printf("nprt version %s\n", version)
@@ -68,6 +71,14 @@ func run() int {
 	}
 
 	args := flag.Args()
+
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") && a != "-" && a != "--" {
+			fmt.Fprintf(os.Stderr, "Error: unknown flag %s\n", a)
+			return 2
+		}
+	}
+
 	if len(args) != 1 {
 		fmt.Fprint(os.Stderr, usage)
 		return 2
@@ -126,4 +137,67 @@ func run() int {
 	}
 
 	return 0
+}
+
+// boolFlag matches the interface used by the standard flag package for boolean flags.
+type boolFlag interface {
+	flag.Value
+	IsBoolFlag() bool
+}
+
+func isBoolFlag(f *flag.Flag) bool {
+	if bf, ok := f.Value.(boolFlag); ok {
+		return bf.IsBoolFlag()
+	}
+	return false
+}
+
+// parseFlagName extracts the flag name from a token like "-json" or "--channels=unstable".
+func parseFlagName(arg string) (name string, hasValue bool) {
+	s := strings.TrimLeft(arg, "-")
+	if i := strings.IndexByte(s, '='); i >= 0 {
+		return s[:i], true
+	}
+	return s, false
+}
+
+// reorderArgs moves known flags (and their values) before positional arguments.
+// This allows flags to appear anywhere on the command line.
+func reorderArgs(args []string) []string {
+	fs := flag.CommandLine
+
+	var flags []string
+	var positionals []string
+
+	i := 0
+	for i < len(args) {
+		a := args[i]
+
+		if a == "--" {
+			positionals = append(positionals, args[i:]...)
+			break
+		}
+
+		if strings.HasPrefix(a, "-") && a != "-" {
+			name, hasValue := parseFlagName(a)
+			if f := fs.Lookup(name); f != nil {
+				if hasValue || isBoolFlag(f) {
+					flags = append(flags, a)
+					i++
+				} else if i+1 < len(args) {
+					flags = append(flags, a, args[i+1])
+					i += 2
+				} else {
+					flags = append(flags, a)
+					i++
+				}
+				continue
+			}
+		}
+
+		positionals = append(positionals, a)
+		i++
+	}
+
+	return append(flags, positionals...)
 }

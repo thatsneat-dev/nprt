@@ -29,11 +29,15 @@ type Client struct {
 // PullRequest represents a GitHub pull request with relevant fields.
 type PullRequest struct {
 	Number         int    `json:"number"`
+	Title          string `json:"title"`
 	State          string `json:"state"`
 	Draft          bool   `json:"draft"`
 	Merged         bool   `json:"merged"`
 	MergeCommitSHA string `json:"merge_commit_sha"`
-	Base           struct {
+	User           struct {
+		Login string `json:"login"`
+	} `json:"user"`
+	Base struct {
 		Ref string `json:"ref"`
 	} `json:"base"`
 }

@@ -18,7 +18,7 @@ const (
 	colorGreen  = "\033[32m"
 	colorRed    = "\033[31m"
 	colorYellow = "\033[33m"
-	colorPurple = "\033[35m"
+	colorBlue   = "\033[1;34m"
 	colorGray   = "\033[90m"
 
 	iconPresent    = "✓"
@@ -57,6 +57,7 @@ func NewRenderer(writer io.Writer, useColor bool, useHyperlinks bool) *Renderer 
 // RenderTable outputs the PR status as a formatted ASCII table.
 func (r *Renderer) RenderTable(status *core.PRStatus) error {
 	r.renderPRStatusLine(status)
+	r.renderAuthorLine(status)
 	fmt.Fprintln(r.writer)
 
 	maxNameLen := len("CHANNEL")
@@ -75,7 +76,7 @@ func (r *Renderer) RenderTable(status *core.PRStatus) error {
 	rowFmt := fmt.Sprintf("%%-%ds  %%s\n", maxNameLen)
 	for _, ch := range status.Channels {
 		icon := r.formatChannelStatus(ch.Status)
-		fmt.Fprintf(r.writer, rowFmt, ch.Name, icon)
+		fmt.Fprintf(r.writer, rowFmt, ch.Name, fmt.Sprintf("  %s  ", icon))
 	}
 
 	return nil
@@ -85,6 +86,11 @@ func (r *Renderer) renderPRStatusLine(status *core.PRStatus) {
 	icon, stateColor := r.getPRStateIconAndColor(status.State)
 	text := fmt.Sprintf("PR #%d", status.Number)
 	url := fmt.Sprintf("https://github.com/NixOS/nixpkgs/pull/%d", status.Number)
+
+	// Add title in parentheses if available
+	if status.Title != "" {
+		text = fmt.Sprintf("%s (%s)", text, status.Title)
+	}
 
 	var displayText string
 	if r.useColor {
@@ -99,7 +105,17 @@ func (r *Renderer) renderPRStatusLine(status *core.PRStatus) {
 		displayText = fmt.Sprintf("\033]8;;%s\033\\%s\033]8;;\033\\", url, displayText)
 	}
 
-	fmt.Fprint(r.writer, displayText)
+	fmt.Fprintln(r.writer, displayText)
+}
+
+func (r *Renderer) renderAuthorLine(status *core.PRStatus) {
+	if status.Author != "" {
+		if r.useColor {
+			fmt.Fprintf(r.writer, "%sby: %s%s\n", colorGray, status.Author, colorReset)
+		} else {
+			fmt.Fprintf(r.writer, "by: %s\n", status.Author)
+		}
+	}
 }
 
 // getPRStateIconAndColor returns the icon and color for a given PR state.
@@ -120,7 +136,7 @@ func (r *Renderer) getPRStateIconAndColor(state core.PRState) (icon, color strin
 			icon = fallbackIcon
 		}
 	case core.PRStateMerged:
-		color = colorPurple
+		color = colorBlue
 		if r.useNerdFonts {
 			icon = nfIconMerged
 		} else {
@@ -164,11 +180,15 @@ func (r *Renderer) formatChannelStatus(status core.ChannelStatus) string {
 func (r *Renderer) RenderJSON(status *core.PRStatus) error {
 	output := struct {
 		PR          int                  `json:"pr"`
+		Title       string               `json:"title,omitempty"`
+		Author      string               `json:"author,omitempty"`
 		State       core.PRState         `json:"state"`
 		MergeCommit string               `json:"merge_commit,omitempty"`
 		Channels    []core.ChannelResult `json:"channels"`
 	}{
 		PR:          status.Number,
+		Title:       status.Title,
+		Author:      status.Author,
 		State:       status.State,
 		MergeCommit: status.MergeCommit,
 		Channels:    status.Channels,
