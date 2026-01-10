@@ -72,11 +72,9 @@ func run() int {
 
 	args := flag.Args()
 
-	for _, a := range args {
-		if strings.HasPrefix(a, "-") && a != "-" && a != "--" {
-			fmt.Fprintf(os.Stderr, "Error: unknown flag %s\n", a)
-			return 2
-		}
+	if unknown := hasUnknownFlags(args); unknown != "" {
+		fmt.Fprintf(os.Stderr, "Error: unknown flag %s\n", unknown)
+		return 2
 	}
 
 	if len(args) != 1 {
@@ -139,6 +137,15 @@ func run() int {
 	return 0
 }
 
+func hasUnknownFlags(args []string) string {
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") && a != "-" && a != "--" {
+			return a
+		}
+	}
+	return ""
+}
+
 // boolFlag matches the interface used by the standard flag package for boolean flags.
 type boolFlag interface {
 	flag.Value
@@ -161,8 +168,10 @@ func parseFlagName(arg string) (name string, hasValue bool) {
 	return s, false
 }
 
-// reorderArgs moves known flags (and their values) before positional arguments.
-// This allows flags to appear anywhere on the command line.
+// reorderArgs moves all recognized flags (and their values) before positional
+// arguments while preserving their relative order. Tokens after a standalone
+// "--" are treated as positionals. Unknown flags are left in place and later
+// detected as errors after flag parsing.
 func reorderArgs(args []string) []string {
 	fs := flag.CommandLine
 

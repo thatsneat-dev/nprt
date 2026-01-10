@@ -163,19 +163,18 @@ func (c *Checker) checkChannel(ctx context.Context, commit string, ch config.Cha
 	return result
 }
 
-// SortChannelResults sorts channels with present first, then others alphabetically.
+// SortChannelResults sorts channels so present channels come first (preserving
+// their original order), followed by non-present channels sorted alphabetically.
 // Sorts in place and returns the same slice.
 func SortChannelResults(results []ChannelResult) []ChannelResult {
 	sort.SliceStable(results, func(i, j int) bool {
-		// Present channels come first
-		if results[i].Status == StatusPresent && results[j].Status != StatusPresent {
-			return true
+		isPresentI := results[i].Status == StatusPresent
+		isPresentJ := results[j].Status == StatusPresent
+
+		if isPresentI != isPresentJ {
+			return isPresentI
 		}
-		if results[i].Status != StatusPresent && results[j].Status == StatusPresent {
-			return false
-		}
-		// Non-present channels sorted alphabetically
-		if results[i].Status != StatusPresent && results[j].Status != StatusPresent {
+		if !isPresentI {
 			return results[i].Name < results[j].Name
 		}
 		return false
