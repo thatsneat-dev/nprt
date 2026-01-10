@@ -19,6 +19,15 @@ var DefaultChannels = []Channel{
 	{Name: "nixos-unstable", Branch: "nixos-unstable"},
 }
 
+// AvailableChannelNames returns the default channel names as a comma-separated string.
+func AvailableChannelNames() string {
+	names := make([]string, len(DefaultChannels))
+	for i, ch := range DefaultChannels {
+		names[i] = ch.Name
+	}
+	return strings.Join(names, ", ")
+}
+
 // Channel represents a nixpkgs branch that serves as a release channel.
 type Channel struct {
 	Name   string
@@ -44,6 +53,7 @@ func ParsePRInput(input string) (int, error) {
 		return 0, fmt.Errorf("invalid PR input: must be a number or https://github.com/NixOS/nixpkgs/pull/{number}")
 	}
 
+	// Error ignored: regex guarantees matches[1] contains only digits
 	num, _ := strconv.Atoi(matches[1])
 	return num, nil
 }
@@ -56,8 +66,8 @@ func ParseChannels(input string) ([]Channel, error) {
 	}
 
 	requested := make(map[string]bool)
-	for _, p := range strings.Split(input, ",") {
-		name := strings.TrimSpace(p)
+	for _, part := range strings.Split(input, ",") {
+		name := strings.TrimSpace(part)
 		if name != "" {
 			requested[name] = true
 		}
@@ -75,7 +85,7 @@ func ParseChannels(input string) ([]Channel, error) {
 	}
 
 	if len(channels) == 0 {
-		return nil, fmt.Errorf("no matching channels found; available: master, staging-next, nixpkgs-unstable, nixos-unstable-small, nixos-unstable")
+		return nil, fmt.Errorf("no matching channels found; available: %s", AvailableChannelNames())
 	}
 
 	return channels, nil

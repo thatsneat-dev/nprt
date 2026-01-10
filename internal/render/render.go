@@ -13,13 +13,15 @@ import (
 )
 
 const (
-	colorReset  = "\033[0m"
-	colorBold   = "\033[1m"
-	colorGreen  = "\033[32m"
-	colorRed    = "\033[31m"
-	colorYellow = "\033[33m"
-	colorBlue   = "\033[1;34m"
-	colorGray   = "\033[90m"
+	colorReset = "\033[0m"
+	colorBold  = "\033[1m"
+
+	// 256-color palette indices (0-15) for theme compatibility
+	colorGray   = "\033[38;5;8m"  // palette 8: subdued/secondary (draft, author)
+	colorGreen  = "\033[38;5;10m" // palette 10: success/active (open, present)
+	colorBlue   = "\033[38;5;12m" // palette 12: info/completed (merged)
+	colorRed    = "\033[38;5;9m"  // palette 9: error/negative (closed, not present)
+	colorYellow = "\033[38;5;11m" // palette 11: warning/unknown
 
 	iconPresent    = "✓"
 	iconNotPresent = "✗"
@@ -178,23 +180,7 @@ func (r *Renderer) formatChannelStatus(status core.ChannelStatus) string {
 
 // RenderJSON outputs the PR status as pretty-printed JSON.
 func (r *Renderer) RenderJSON(status *core.PRStatus) error {
-	output := struct {
-		PR          int                  `json:"pr"`
-		Title       string               `json:"title,omitempty"`
-		Author      string               `json:"author,omitempty"`
-		State       core.PRState         `json:"state"`
-		MergeCommit string               `json:"merge_commit,omitempty"`
-		Channels    []core.ChannelResult `json:"channels"`
-	}{
-		PR:          status.Number,
-		Title:       status.Title,
-		Author:      status.Author,
-		State:       status.State,
-		MergeCommit: status.MergeCommit,
-		Channels:    status.Channels,
-	}
-
 	encoder := json.NewEncoder(r.writer)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(output)
+	return encoder.Encode(status)
 }

@@ -74,11 +74,11 @@ func TestRenderTable_WithColor(t *testing.T) {
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "\033[32m") {
-		t.Error("Output should contain green ANSI color code")
+	if !strings.Contains(output, "\033[38;5;10m") {
+		t.Error("Output should contain green palette color code")
 	}
-	if !strings.Contains(output, "\033[1;34m") {
-		t.Error("Output should contain bold blue ANSI color code for merged PR status line")
+	if !strings.Contains(output, "\033[38;5;12m") {
+		t.Error("Output should contain blue palette color code for merged PR status line")
 	}
 }
 
