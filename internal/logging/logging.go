@@ -8,8 +8,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// New creates a zap logger. If verbose is false, returns a no-op logger.
-// If verbose is true, returns a debug-level console logger with caller info.
+// New creates a zap logger based on the verbose flag.
+// If verbose is false, returns a no-op logger that discards all output.
+// If verbose is true, returns a debug-level console logger that writes
+// to stderr with timestamps, log levels, and caller information.
 func New(verbose bool) *zap.Logger {
 	if !verbose {
 		return zap.NewNop()

@@ -118,19 +118,12 @@ func run() int {
 
 	status, err := checker.CheckPR(ctx, prNumber, channels)
 	if err != nil {
+		// 403 errors (rate limit, auth failure) get a distinct exit code
 		var apiErr *github.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == 403 {
 			fmt.Fprintln(os.Stderr, render.FormatError(apiErr.Message, useColor))
 			return 3
 		}
-
-		var notPR *github.NotPullRequestError
-		var notFound *github.NotFoundError
-		if errors.As(err, &notPR) || errors.As(err, &notFound) {
-			fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
-			return 1
-		}
-
 		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
 		return 1
 	}

@@ -27,11 +27,11 @@ const (
 	iconNotPresent = "✗"
 	iconUnknown    = "?"
 
-	// Nerd Font icons
-	nfIconDraft  = "\uf4dd"
-	nfIconOpen   = "\uf407"
-	nfIconMerged = "\uf407"
-	nfIconClosed = "\uf4dc"
+	// Nerd Font icons (from nf-oct-* Octicons set)
+	nfIconDraft  = "\uf4dd" // nf-oct-git_pull_request_draft
+	nfIconOpen   = "\uf407" // nf-oct-git_pull_request
+	nfIconMerged = "\uf419" // nf-oct-git_merge
+	nfIconClosed = "\uf4dc" // nf-oct-git_pull_request_closed
 
 	// Fallback dot icon
 	fallbackIcon = "●"

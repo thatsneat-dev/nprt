@@ -113,8 +113,8 @@ func TestGetPullRequest_IsIssueNotPR(t *testing.T) {
 	if notPRErr.Title != "Some bug report" {
 		t.Errorf("NotPullRequestError.Title = %q, want %q", notPRErr.Title, "Some bug report")
 	}
-	if !strings.Contains(err.Error(), "Issue, not a Pull Request") {
-		t.Errorf("error message should mention 'Issue, not a Pull Request': %v", err)
+	if !strings.Contains(err.Error(), "issue, not a pull request") {
+		t.Errorf("error message should mention 'issue, not a pull request': %v", err)
 	}
 }
 
@@ -173,5 +173,69 @@ func TestCompareCommitWithBranch_CommitNotInBranch(t *testing.T) {
 	}
 	if result.BehindBy == 0 {
 		t.Error("BehindBy should be > 0 (commit not in branch)")
+	}
+}
+
+func TestGetPullRequest_IssueEndpointSaysPR(t *testing.T) {
+	// Edge case: /pulls returns 404, but /issues returns 200 with pull_request field
+	// This indicates an unexpected API state (auth issue, API anomaly, etc.)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/pulls/") {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message": "Not Found"}`))
+			return
+		}
+		if strings.Contains(r.URL.Path, "/issues/") {
+			// Issue endpoint says it's a PR (has pull_request field)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"number": 99999,
+				"title": "Some PR",
+				"html_url": "https://github.com/NixOS/nixpkgs/pull/99999",
+				"pull_request": {}
+			}`))
+			return
+		}
+		t.Errorf("unexpected path: %s", r.URL.Path)
+	}))
+	defer server.Close()
+
+	client := github.NewClient("", zap.NewNop())
+	client.BaseURL = server.URL
+
+	_, err := client.GetPullRequest(context.Background(), 99999)
+	if err == nil {
+		t.Fatal("GetPullRequest should have returned error")
+	}
+	if !strings.Contains(err.Error(), "could not be fetched") {
+		t.Errorf("error should mention 'could not be fetched': %v", err)
+	}
+	if !strings.Contains(err.Error(), "GITHUB_TOKEN") {
+		t.Errorf("error should mention GITHUB_TOKEN: %v", err)
+	}
+}
+
+func TestAPIError_ParsesJSONMessage(t *testing.T) {
+	// Test that API errors extract the "message" field from JSON responses
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"message": "Validation Failed", "documentation_url": "https://docs.github.com"}`))
+	}))
+	defer server.Close()
+
+	client := github.NewClient("", zap.NewNop())
+	client.BaseURL = server.URL
+
+	_, err := client.GetPullRequest(context.Background(), 123)
+	if err == nil {
+		t.Fatal("GetPullRequest should have returned error")
+	}
+
+	var apiErr *github.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got: %T", err)
+	}
+	if apiErr.Message != "Validation Failed" {
+		t.Errorf("APIError.Message = %q, want %q", apiErr.Message, "Validation Failed")
 	}
 }

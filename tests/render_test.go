@@ -33,7 +33,8 @@ func TestRenderTable_NoColor(t *testing.T) {
 	if !strings.Contains(output, "PR #476497") {
 		t.Error("Output should contain PR status line")
 	}
-	if !strings.Contains(output, "\uf407") && !strings.Contains(output, "●") {
+	// Check for merged icon (\uf419), open icon (\uf407), or fallback (●)
+	if !strings.Contains(output, "\uf419") && !strings.Contains(output, "\uf407") && !strings.Contains(output, "●") {
 		t.Error("Output should contain PR state icon")
 	}
 	if !strings.Contains(output, "CHANNEL") {
@@ -167,5 +168,33 @@ func TestRenderTable_UnknownStatus(t *testing.T) {
 	output := buf.String()
 	if !strings.Contains(output, "?") {
 		t.Error("Output should contain '?' for unknown status")
+	}
+}
+
+func TestFormatError_WithColor(t *testing.T) {
+	msg := "something went wrong"
+	result := render.FormatError(msg, true)
+
+	if !strings.Contains(result, "Error:") {
+		t.Error("FormatError should contain 'Error:' prefix")
+	}
+	if !strings.Contains(result, msg) {
+		t.Error("FormatError should contain the original message")
+	}
+	if !strings.Contains(result, "\033[") {
+		t.Error("FormatError with color should contain ANSI codes")
+	}
+}
+
+func TestFormatError_WithoutColor(t *testing.T) {
+	msg := "something went wrong"
+	result := render.FormatError(msg, false)
+
+	expected := "Error: something went wrong"
+	if result != expected {
+		t.Errorf("FormatError = %q, want %q", result, expected)
+	}
+	if strings.Contains(result, "\033[") {
+		t.Error("FormatError without color should not contain ANSI codes")
 	}
 }

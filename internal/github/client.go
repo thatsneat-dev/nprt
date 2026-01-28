@@ -61,15 +61,17 @@ func (e *APIError) Error() string {
 }
 
 // NotFoundError indicates that no issue or pull request exists with the given number.
+// Callers can use errors.As(err, &NotFoundError{}) to detect this case.
 type NotFoundError struct {
 	Number int
 }
 
 func (e *NotFoundError) Error() string {
-	return fmt.Sprintf("No issue or pull request #%d exists in NixOS/nixpkgs", e.Number)
+	return fmt.Sprintf("no PR or issue #%d exists in NixOS/nixpkgs", e.Number)
 }
 
 // NotPullRequestError indicates that the number exists but is an Issue, not a PR.
+// Callers can use errors.As(err, &NotPullRequestError{}) to detect this case.
 type NotPullRequestError struct {
 	Number int
 	Title  string
@@ -78,20 +80,19 @@ type NotPullRequestError struct {
 
 func (e *NotPullRequestError) Error() string {
 	if e.Title != "" {
-		return fmt.Sprintf("#%d is an Issue, not a Pull Request: %q (%s)", e.Number, e.Title, e.URL)
+		return fmt.Sprintf("#%d is an issue, not a pull request: %q (%s)", e.Number, e.Title, e.URL)
 	}
-	return fmt.Sprintf("#%d is an Issue, not a Pull Request", e.Number)
+	return fmt.Sprintf("#%d is an issue, not a pull request", e.Number)
 }
 
 // Issue represents a GitHub issue with minimal fields for type detection.
 type Issue struct {
-	Number      int     `json:"number"`
-	Title       string  `json:"title"`
-	HTMLURL     string  `json:"html_url"`
+	Number      int       `json:"number"`
+	Title       string    `json:"title"`
+	HTMLURL     string    `json:"html_url"`
 	PullRequest *struct{} `json:"pull_request"`
 }
 
-// NewClient creates a new GitHub API client with the given token.
 // NewClient creates a new GitHub API client with the given token and logger.
 func NewClient(token string, log *zap.Logger) *Client {
 	return &Client{
@@ -149,11 +150,23 @@ func (c *Client) doRequest(ctx context.Context, method, path string) ([]byte, er
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, &APIError{
 			StatusCode: resp.StatusCode,
-			Message:    string(body),
+			Message:    extractAPIMessage(body),
 		}
 	}
 
 	return body, nil
+}
+
+// extractAPIMessage attempts to parse a GitHub API error response and extract
+// the "message" field. Falls back to the raw body if parsing fails.
+func extractAPIMessage(body []byte) string {
+	var parsed struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &parsed); err == nil && parsed.Message != "" {
+		return parsed.Message
+	}
+	return string(body)
 }
 
 // GetPullRequest fetches a pull request by number from NixOS/nixpkgs.
@@ -208,7 +221,9 @@ func (c *Client) disambiguateNotFound(ctx context.Context, number int) error {
 				URL:    issue.HTMLURL,
 			}
 		}
-		return fmt.Errorf("PR #%d appears to exist but could not be fetched", number)
+		// The issue endpoint says it's a PR, but /pulls returned 404.
+		// This is unexpected; possibly an auth/scope issue or API anomaly.
+		return fmt.Errorf("PR #%d exists but could not be fetched; check your GITHUB_TOKEN permissions", number)
 	}
 
 	var apiErr *APIError

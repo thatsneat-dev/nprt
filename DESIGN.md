@@ -67,8 +67,8 @@ nixos-unstable        ✗
   listed first
 - Any failed channels (those which the PR has not been promoted to) should be
   listed last, in alphabetical order
-- When `--no-color` is set or stdout is not a TTY, output plain text without
-  ANSI codes
+- When `--color=never` is set, `NO_COLOR` env is set, or stdout is not a TTY,
+  output plain text without ANSI codes
 
 ### JSON Output
 
@@ -107,8 +107,8 @@ When `--json` is specified, output follows this schema:
    - For each channel branch, call:
      `GET /repos/NixOS/nixpkgs/compare/{commit}...{branch}`
    - Interpret:
-     - If `status` is `"behind"` or `"identical"`: commit is in the branch →
-       channel **contains** the PR.
+     - If `behind_by == 0`: the branch contains all commits from the merge
+       commit → channel **contains** the PR.
      - Otherwise: channel does **not** contain the PR.
 
 4. **Status mapping & display**
