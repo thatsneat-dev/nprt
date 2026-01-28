@@ -5,9 +5,10 @@ package core
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"sync"
+
+	"go.uber.org/zap"
 
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/config"
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
@@ -52,13 +53,13 @@ type PRStatus struct {
 
 // Checker queries GitHub to determine PR status and channel propagation.
 type Checker struct {
-	client  *github.Client
-	verbose bool
+	client *github.Client
+	log    *zap.Logger
 }
 
-// NewChecker creates a new Checker with the given GitHub client.
-func NewChecker(client *github.Client, verbose bool) *Checker {
-	return &Checker{client: client, verbose: verbose}
+// NewChecker creates a new Checker with the given GitHub client and logger.
+func NewChecker(client *github.Client, log *zap.Logger) *Checker {
+	return &Checker{client: client, log: log.Named("core")}
 }
 
 // CheckPR fetches a PR and checks its propagation across the given channels.
@@ -77,9 +78,7 @@ func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.C
 	}
 
 	if !pr.Merged {
-		if c.verbose {
-			fmt.Fprintf(os.Stderr, "PR is not merged, skipping channel checks\n")
-		}
+		c.log.Debug("PR not merged, skipping channel checks", zap.Int("pr", prNumber))
 		results := make([]ChannelResult, len(channels))
 		for i, ch := range channels {
 			results[i] = ChannelResult{
@@ -96,9 +95,10 @@ func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.C
 		return nil, fmt.Errorf("PR #%d has no merge commit SHA", prNumber)
 	}
 
-	if c.verbose {
-		fmt.Fprintf(os.Stderr, "Checking %d channels for commit %s...\n", len(channels), pr.MergeCommitSHA[:12])
-	}
+	c.log.Debug("checking channels",
+		zap.Int("count", len(channels)),
+		zap.String("commit", pr.MergeCommitSHA[:12]),
+	)
 
 	// Check all channels in parallel for faster results
 	results := make([]ChannelResult, len(channels))
@@ -109,9 +109,7 @@ func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.C
 		i, ch := i, ch // capture loop variables
 		go func() {
 			defer wg.Done()
-			if c.verbose {
-				fmt.Fprintf(os.Stderr, "Checking channel %s...\n", ch.Name)
-			}
+			c.log.Debug("checking channel", zap.String("channel", ch.Name), zap.String("branch", ch.Branch))
 			results[i] = c.checkChannel(ctx, pr.MergeCommitSHA, ch)
 		}()
 	}
@@ -146,9 +144,7 @@ func (c *Checker) checkChannel(ctx context.Context, commit string, ch config.Cha
 	compare, err := c.client.CompareCommitWithBranch(ctx, commit, ch.Branch)
 	if err != nil {
 		result.Error = err.Error()
-		if c.verbose {
-			fmt.Fprintf(os.Stderr, "  Error checking %s: %v\n", ch.Name, err)
-		}
+		c.log.Debug("channel check failed", zap.String("channel", ch.Name), zap.Error(err))
 		return result
 	}
 

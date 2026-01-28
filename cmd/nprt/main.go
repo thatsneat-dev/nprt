@@ -10,9 +10,12 @@ import (
 	"strings"
 	"syscall"
 
+	"go.uber.org/zap"
+
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/config"
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/core"
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
+	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/logging"
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/render"
 )
 
@@ -70,10 +73,14 @@ func run() int {
 		return 0
 	}
 
+	// Compute color settings early so all errors can be styled
+	useColor := config.ShouldUseColor(colorMode)
+	useHyperlinks := config.IsTerminal()
+
 	args := flag.Args()
 
 	if unknown := hasUnknownFlags(args); unknown != "" {
-		fmt.Fprintf(os.Stderr, "Error: unknown flag %s\n", unknown)
+		fmt.Fprintln(os.Stderr, render.FormatError("unknown flag "+unknown, useColor))
 		return 2
 	}
 
@@ -84,26 +91,26 @@ func run() int {
 
 	prNumber, err := config.ParsePRInput(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
 		return 2
 	}
 
 	channels, err := config.ParseChannels(channelsFlag)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
 		return 2
 	}
 
 	token := config.GetGitHubToken()
-	useColor := config.ShouldUseColor(colorMode)
-	useHyperlinks := config.IsTerminal()
 
-	if verbose {
-		fmt.Fprintf(os.Stderr, "Fetching PR #%d from NixOS/nixpkgs...\n", prNumber)
-	}
+	// Create logger based on verbose flag
+	log := logging.New(verbose)
+	defer func() { _ = log.Sync() }()
 
-	client := github.NewClient(token, verbose)
-	checker := core.NewChecker(client, verbose)
+	log.Debug("fetching PR", zap.Int("pr", prNumber))
+
+	client := github.NewClient(token, log)
+	checker := core.NewChecker(client, log)
 
 	// Set up context with signal handling for clean cancellation
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -111,12 +118,13 @@ func run() int {
 
 	status, err := checker.CheckPR(ctx, prNumber, channels)
 	if err != nil {
+		// 403 errors (rate limit, auth failure) get a distinct exit code
 		var apiErr *github.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == 403 {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", apiErr.Message)
+			fmt.Fprintln(os.Stderr, render.FormatError(apiErr.Message, useColor))
 			return 3
 		}
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
 		return 1
 	}
 
@@ -124,12 +132,12 @@ func run() int {
 
 	if jsonOutput {
 		if err := renderer.RenderJSON(status); err != nil {
-			fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
+			fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), useColor))
 			return 1
 		}
 	} else {
 		if err := renderer.RenderTable(status); err != nil {
-			fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
+			fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), useColor))
 			return 1
 		}
 	}

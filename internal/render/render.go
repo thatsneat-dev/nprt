@@ -27,11 +27,11 @@ const (
 	iconNotPresent = "✗"
 	iconUnknown    = "?"
 
-	// Nerd Font icons
-	nfIconDraft  = "\uf4dd"
-	nfIconOpen   = "\uf407"
-	nfIconMerged = "\uf407"
-	nfIconClosed = "\uf4dc"
+	// Nerd Font icons (from nf-oct-* Octicons set)
+	nfIconDraft  = "\uf4dd" // nf-oct-git_pull_request_draft
+	nfIconOpen   = "\uf407" // nf-oct-git_pull_request
+	nfIconMerged = "\uf419" // nf-oct-git_merge
+	nfIconClosed = "\uf4dc" // nf-oct-git_pull_request_closed
 
 	// Fallback dot icon
 	fallbackIcon = "●"
@@ -183,4 +183,12 @@ func (r *Renderer) RenderJSON(status *core.PRStatus) error {
 	encoder := json.NewEncoder(r.writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(status)
+}
+
+// FormatError formats an error message with red color if color is enabled.
+func FormatError(msg string, useColor bool) string {
+	if useColor {
+		return colorRed + "Error: " + msg + colorReset
+	}
+	return "Error: " + msg
 }
