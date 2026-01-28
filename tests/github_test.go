@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -47,6 +48,7 @@ func TestGetPullRequest_Success(t *testing.T) {
 
 func TestGetPullRequest_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Both /pulls and /issues return 404 - number doesn't exist
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"message": "Not Found"}`))
 	}))
@@ -59,8 +61,58 @@ func TestGetPullRequest_NotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("GetPullRequest should have returned error")
 	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Errorf("error should mention 'not found': %v", err)
+
+	var notFoundErr *github.NotFoundError
+	if !errors.As(err, &notFoundErr) {
+		t.Errorf("error should be NotFoundError, got: %T (%v)", err, err)
+	}
+	if notFoundErr.Number != 999999 {
+		t.Errorf("NotFoundError.Number = %d, want 999999", notFoundErr.Number)
+	}
+}
+
+func TestGetPullRequest_IsIssueNotPR(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/pulls/") {
+			// /pulls returns 404 because it's not a PR
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message": "Not Found"}`))
+			return
+		}
+		if strings.Contains(r.URL.Path, "/issues/") {
+			// /issues returns 200 with an issue (no pull_request field)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"number": 12345,
+				"title": "Some bug report",
+				"html_url": "https://github.com/NixOS/nixpkgs/issues/12345"
+			}`))
+			return
+		}
+		t.Errorf("unexpected path: %s", r.URL.Path)
+	}))
+	defer server.Close()
+
+	client := github.NewClient("", false)
+	client.BaseURL = server.URL
+
+	_, err := client.GetPullRequest(context.Background(), 12345)
+	if err == nil {
+		t.Fatal("GetPullRequest should have returned error")
+	}
+
+	var notPRErr *github.NotPullRequestError
+	if !errors.As(err, &notPRErr) {
+		t.Errorf("error should be NotPullRequestError, got: %T (%v)", err, err)
+	}
+	if notPRErr.Number != 12345 {
+		t.Errorf("NotPullRequestError.Number = %d, want 12345", notPRErr.Number)
+	}
+	if notPRErr.Title != "Some bug report" {
+		t.Errorf("NotPullRequestError.Title = %q, want %q", notPRErr.Title, "Some bug report")
+	}
+	if !strings.Contains(err.Error(), "Issue, not a Pull Request") {
+		t.Errorf("error message should mention 'Issue, not a Pull Request': %v", err)
 	}
 }
 

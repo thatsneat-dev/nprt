@@ -59,6 +59,37 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("GitHub API error (status %d): %s", e.StatusCode, e.Message)
 }
 
+// NotFoundError indicates that no issue or pull request exists with the given number.
+type NotFoundError struct {
+	Number int
+}
+
+func (e *NotFoundError) Error() string {
+	return fmt.Sprintf("No issue or pull request #%d exists in NixOS/nixpkgs", e.Number)
+}
+
+// NotPullRequestError indicates that the number exists but is an Issue, not a PR.
+type NotPullRequestError struct {
+	Number int
+	Title  string
+	URL    string
+}
+
+func (e *NotPullRequestError) Error() string {
+	if e.Title != "" {
+		return fmt.Sprintf("#%d is an Issue, not a Pull Request: %q (%s)", e.Number, e.Title, e.URL)
+	}
+	return fmt.Sprintf("#%d is an Issue, not a Pull Request", e.Number)
+}
+
+// Issue represents a GitHub issue with minimal fields for type detection.
+type Issue struct {
+	Number      int     `json:"number"`
+	Title       string  `json:"title"`
+	HTMLURL     string  `json:"html_url"`
+	PullRequest *struct{} `json:"pull_request"`
+}
+
 // NewClient creates a new GitHub API client with the given token.
 func NewClient(token string, verbose bool) *Client {
 	return &Client{
@@ -128,6 +159,8 @@ func (c *Client) doRequest(ctx context.Context, method, path string) ([]byte, er
 }
 
 // GetPullRequest fetches a pull request by number from NixOS/nixpkgs.
+// If the number is an Issue (not a PR), returns NotPullRequestError.
+// If the number doesn't exist at all, returns NotFoundError.
 func (c *Client) GetPullRequest(ctx context.Context, number int) (*PullRequest, error) {
 	path := fmt.Sprintf("/repos/NixOS/nixpkgs/pulls/%d", number)
 
@@ -135,7 +168,7 @@ func (c *Client) GetPullRequest(ctx context.Context, number int) (*PullRequest, 
 	if err != nil {
 		var apiErr *APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
-			return nil, fmt.Errorf("PR #%d not found in NixOS/nixpkgs", number)
+			return nil, c.disambiguateNotFound(ctx, number)
 		}
 		return nil, err
 	}
@@ -146,6 +179,46 @@ func (c *Client) GetPullRequest(ctx context.Context, number int) (*PullRequest, 
 	}
 
 	return &pr, nil
+}
+
+// GetIssue fetches an issue by number from NixOS/nixpkgs.
+func (c *Client) GetIssue(ctx context.Context, number int) (*Issue, error) {
+	path := fmt.Sprintf("/repos/NixOS/nixpkgs/issues/%d", number)
+
+	body, err := c.doRequest(ctx, http.MethodGet, path)
+	if err != nil {
+		return nil, err
+	}
+
+	var issue Issue
+	if err := json.Unmarshal(body, &issue); err != nil {
+		return nil, fmt.Errorf("failed to parse issue response: %w", err)
+	}
+
+	return &issue, nil
+}
+
+// disambiguateNotFound checks if a 404 from /pulls is due to the number being
+// an Issue (not a PR) or not existing at all.
+func (c *Client) disambiguateNotFound(ctx context.Context, number int) error {
+	issue, err := c.GetIssue(ctx, number)
+	if err == nil {
+		if issue.PullRequest == nil {
+			return &NotPullRequestError{
+				Number: number,
+				Title:  issue.Title,
+				URL:    issue.HTMLURL,
+			}
+		}
+		return fmt.Errorf("PR #%d appears to exist but could not be fetched", number)
+	}
+
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+		return &NotFoundError{Number: number}
+	}
+
+	return err
 }
 
 // CompareCommitWithBranch checks if a commit is present in a branch.

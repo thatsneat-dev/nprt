@@ -184,3 +184,11 @@ func (r *Renderer) RenderJSON(status *core.PRStatus) error {
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(status)
 }
+
+// FormatError formats an error message with red color if color is enabled.
+func FormatError(msg string, useColor bool) string {
+	if useColor {
+		return colorRed + "Error: " + msg + colorReset
+	}
+	return "Error: " + msg
+}

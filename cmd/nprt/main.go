@@ -70,10 +70,14 @@ func run() int {
 		return 0
 	}
 
+	// Compute color settings early so all errors can be styled
+	useColor := config.ShouldUseColor(colorMode)
+	useHyperlinks := config.IsTerminal()
+
 	args := flag.Args()
 
 	if unknown := hasUnknownFlags(args); unknown != "" {
-		fmt.Fprintf(os.Stderr, "Error: unknown flag %s\n", unknown)
+		fmt.Fprintln(os.Stderr, render.FormatError("unknown flag "+unknown, useColor))
 		return 2
 	}
 
@@ -84,19 +88,17 @@ func run() int {
 
 	prNumber, err := config.ParsePRInput(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
 		return 2
 	}
 
 	channels, err := config.ParseChannels(channelsFlag)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
 		return 2
 	}
 
 	token := config.GetGitHubToken()
-	useColor := config.ShouldUseColor(colorMode)
-	useHyperlinks := config.IsTerminal()
 
 	if verbose {
 		fmt.Fprintf(os.Stderr, "Fetching PR #%d from NixOS/nixpkgs...\n", prNumber)
@@ -113,10 +115,18 @@ func run() int {
 	if err != nil {
 		var apiErr *github.APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == 403 {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", apiErr.Message)
+			fmt.Fprintln(os.Stderr, render.FormatError(apiErr.Message, useColor))
 			return 3
 		}
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+
+		var notPR *github.NotPullRequestError
+		var notFound *github.NotFoundError
+		if errors.As(err, &notPR) || errors.As(err, &notFound) {
+			fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
+			return 1
+		}
+
+		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
 		return 1
 	}
 
@@ -124,12 +134,12 @@ func run() int {
 
 	if jsonOutput {
 		if err := renderer.RenderJSON(status); err != nil {
-			fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
+			fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), useColor))
 			return 1
 		}
 	} else {
 		if err := renderer.RenderTable(status); err != nil {
-			fmt.Fprintf(os.Stderr, "Error rendering output: %s\n", err)
+			fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), useColor))
 			return 1
 		}
 	}
