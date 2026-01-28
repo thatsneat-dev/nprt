@@ -1,4 +1,4 @@
-.PHONY: build test format-check format vulncheck clean version-bump
+.PHONY: build test format-check format vulncheck clean version-bump release-prep
 
 BINARY_NAME := nprt
 BUILD_DIR := bin
@@ -89,3 +89,35 @@ version-bump:
 	NEW_VERSION="$$MAJOR.$$MINOR.$$PATCH"; \
 	echo "$$NEW_VERSION" > $(VERSION_FILE); \
 	echo "Version bumped: $(VERSION) -> $$NEW_VERSION"
+
+# Release preparation - run all checks and sync before tagging
+# Usage: make release-prep TYPE=patch|minor|major
+release-prep:
+	@if [ -z "$(TYPE)" ]; then \
+		echo "Usage: make release-prep TYPE=<patch|minor|major>"; \
+		echo "Current version: $(VERSION)"; \
+		exit 1; \
+	fi
+	@echo "=== Release Preparation ==="
+	@echo ""
+	@echo "Step 1/5: Formatting code..."
+	@$(MAKE) format
+	@echo ""
+	@echo "Step 2/5: Running go mod tidy..."
+	go mod tidy
+	@echo ""
+	@echo "Step 3/5: Syncing vendor directory..."
+	go mod vendor
+	@echo ""
+	@echo "Step 4/5: Bumping version..."
+	@$(MAKE) version-bump TYPE=$(TYPE)
+	@echo ""
+	@echo "Step 5/5: Updating flake.lock..."
+	nix flake update
+	@echo ""
+	@echo "=== Release Preparation Complete ==="
+	@echo "Next steps:"
+	@echo "  1. Review changes: git diff"
+	@echo "  2. Commit: git commit -am 'release: v$$(cat $(VERSION_FILE))'"
+	@echo "  3. Tag: git tag v$$(cat $(VERSION_FILE))"
+	@echo "  4. Push: git push && git push --tags"
