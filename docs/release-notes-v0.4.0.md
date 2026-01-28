@@ -32,7 +32,7 @@ and a code quality review pass.
 
 ### Visual Fixes
 
-- Fixed Nerd Font icon for merged PRs: now uses `` (git-merge) instead of
+- Fixed Nerd Font icon for merged PRs: now uses `\uf419` (`nf-oct-git_merge`) instead of
   sharing the same icon as open PRs
 
 ## Bug Fixes
