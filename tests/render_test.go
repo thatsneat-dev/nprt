@@ -10,7 +10,10 @@ import (
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/render"
 )
 
-func TestRenderTable_NoColor(t *testing.T) {
+func TestRenderTable_NoColor_WithNerdFonts(t *testing.T) {
+	// Ensure Nerd Fonts are enabled for this test
+	t.Setenv("NO_NERD_FONTS", "")
+
 	status := &core.PRStatus{
 		Number:      476497,
 		State:       core.PRStateMerged,
@@ -33,9 +36,9 @@ func TestRenderTable_NoColor(t *testing.T) {
 	if !strings.Contains(output, "PR #476497") {
 		t.Error("Output should contain PR status line")
 	}
-	// Check for merged icon (\uf419), open icon (\uf407), or fallback (●)
-	if !strings.Contains(output, "\uf419") && !strings.Contains(output, "\uf407") && !strings.Contains(output, "●") {
-		t.Error("Output should contain PR state icon")
+	// Merged PR should show merged icon (\uf419), not open icon
+	if !strings.Contains(output, "\uf419") {
+		t.Error("Merged PR should contain merged icon (\\uf419)")
 	}
 	if !strings.Contains(output, "CHANNEL") {
 		t.Error("Output should contain 'CHANNEL' header")
@@ -54,6 +57,37 @@ func TestRenderTable_NoColor(t *testing.T) {
 	}
 	if !strings.Contains(output, "✗") {
 		t.Error("Output should contain X mark")
+	}
+}
+
+func TestRenderTable_NoColor_NoNerdFonts(t *testing.T) {
+	// Disable Nerd Fonts for deterministic fallback icon
+	t.Setenv("NO_NERD_FONTS", "1")
+
+	status := &core.PRStatus{
+		Number:      476497,
+		State:       core.PRStateMerged,
+		MergeCommit: "abc123",
+		Channels: []core.ChannelResult{
+			{Name: "master", Branch: "master", Status: core.StatusPresent},
+		},
+	}
+
+	var buf bytes.Buffer
+	renderer := render.NewRenderer(&buf, false, false)
+	err := renderer.RenderTable(status)
+	if err != nil {
+		t.Fatalf("RenderTable returned error: %v", err)
+	}
+
+	output := buf.String()
+
+	if !strings.Contains(output, "●") {
+		t.Error("Output should contain fallback dot icon when NO_NERD_FONTS=1")
+	}
+	// Should NOT contain any Nerd Font icons
+	if strings.Contains(output, "\uf419") || strings.Contains(output, "\uf407") {
+		t.Error("Output should not contain Nerd Font icons when NO_NERD_FONTS=1")
 	}
 }
 
