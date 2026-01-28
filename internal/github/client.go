@@ -61,7 +61,7 @@ func (e *APIError) Error() string {
 }
 
 // NotFoundError indicates that no issue or pull request exists with the given number.
-// Callers can use errors.As(err, &NotFoundError{}) to detect this case.
+// Callers can detect this with: var nf *NotFoundError; errors.As(err, &nf)
 type NotFoundError struct {
 	Number int
 }
@@ -71,7 +71,7 @@ func (e *NotFoundError) Error() string {
 }
 
 // NotPullRequestError indicates that the number exists but is an Issue, not a PR.
-// Callers can use errors.As(err, &NotPullRequestError{}) to detect this case.
+// Callers can detect this with: var npr *NotPullRequestError; errors.As(err, &npr)
 type NotPullRequestError struct {
 	Number int
 	Title  string
@@ -87,9 +87,9 @@ func (e *NotPullRequestError) Error() string {
 
 // Issue represents a GitHub issue with minimal fields for type detection.
 type Issue struct {
-	Number      int       `json:"number"`
-	Title       string    `json:"title"`
-	HTMLURL     string    `json:"html_url"`
+	Number      int     `json:"number"`
+	Title       string  `json:"title"`
+	HTMLURL     string  `json:"html_url"`
 	PullRequest *struct{} `json:"pull_request"`
 }
 
