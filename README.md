@@ -1,4 +1,10 @@
 <div align="center">
+    <img src=".github/assets/nprt.png" alt="nprt Logo">
+    <br/>
+    <h1>nprt</h1>
+</div>
+
+<div align="center">
   <p>
     <a href="https://github.com/thatsneat-dev/nprt/releases/latest">
       <img alt="Latest release" src="https://img.shields.io/github/v/release/thatsneat-dev/nprt?style=for-the-badge&color=C9CBFF&logoColor=D9E0EE&labelColor=302D41" />
@@ -20,8 +26,6 @@
     </a>
   </p>
 </div>
-
-# nprt
 
 `nprt` (**N**ixpkgs **PR** **T**racker) is a CLI tool to track which
 [nixpkgs](https://github.com/NixOS/nixpkgs) channels contain a given pull
