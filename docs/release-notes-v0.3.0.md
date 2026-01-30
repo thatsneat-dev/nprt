@@ -15,7 +15,7 @@ Improved terminal theming compatibility and added Nerd Font icon support.
 - Palette mapping:
   - Green (10): success/present indicators
   - Red (9): error/not-present indicators
-  - Blue (12): merged PR state
+  - Purple (13): merged PR state
   - Gray (8): subdued text (author, draft state)
   - Yellow (11): unknown/warning state
 

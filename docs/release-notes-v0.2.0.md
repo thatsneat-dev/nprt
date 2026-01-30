@@ -26,7 +26,7 @@ Quality-of-life improvements, Nix flake support, and project cleanup.
 
 - Improved table formatting with centered status symbols
 - Author line displayed in subdued gray color
-- Use blue instead of purple for merged state (better accessibility)
+- Use purple for merged state
 
 ## Bug Fixes
 

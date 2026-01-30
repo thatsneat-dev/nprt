@@ -9,10 +9,10 @@ const (
 	// 256-color palette indices (0-15) for theme compatibility
 	colorGray   = "\033[38;5;8m"  // palette 8: subdued/secondary (draft, author)
 	colorGreen  = "\033[38;5;10m" // palette 10: success/active (open, present)
-	colorBlue   = "\033[38;5;12m" // palette 12: info/completed (merged)
+	colorBlue   = "\033[38;5;12m" // palette 12: info/completed
 	colorRed    = "\033[38;5;9m"  // palette 9: error/negative (closed, not present)
 	colorYellow = "\033[38;5;11m" // palette 11: warning/unknown
-	colorPurple = "\033[38;5;13m" // palette 13: closed issues
+	colorPurple = "\033[38;5;13m" // palette 13: merged PRs, closed issues
 
 	iconPresent    = "✓"
 	iconNotPresent = "✗"

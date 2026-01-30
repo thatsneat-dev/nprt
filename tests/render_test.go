@@ -112,8 +112,8 @@ func TestRenderTable_WithColor(t *testing.T) {
 	if !strings.Contains(output, "\033[38;5;10m") {
 		t.Error("Output should contain green palette color code")
 	}
-	if !strings.Contains(output, "\033[38;5;12m") {
-		t.Error("Output should contain blue palette color code for merged PR status line")
+	if !strings.Contains(output, "\033[38;5;13m") {
+		t.Error("Output should contain purple palette color code for merged PR status line")
 	}
 }
 
