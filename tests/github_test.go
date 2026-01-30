@@ -87,6 +87,7 @@ func TestGetPullRequest_IsIssueNotPR(t *testing.T) {
 			w.Write([]byte(`{
 				"number": 12345,
 				"title": "Some bug report",
+				"state": "open",
 				"html_url": "https://github.com/NixOS/nixpkgs/issues/12345"
 			}`))
 			return
@@ -301,6 +302,7 @@ func TestGetPullRequest_IsIssueWithRelatedPRs(t *testing.T) {
 			w.Write([]byte(`{
 				"number": 12345,
 				"title": "Some bug report",
+				"state": "open",
 				"html_url": "https://github.com/NixOS/nixpkgs/issues/12345"
 			}`))
 			return
@@ -359,6 +361,7 @@ func TestGetPullRequest_IsIssueTimelineFails(t *testing.T) {
 			w.Write([]byte(`{
 				"number": 12345,
 				"title": "Some bug report",
+				"state": "open",
 				"html_url": "https://github.com/NixOS/nixpkgs/issues/12345"
 			}`))
 			return
