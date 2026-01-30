@@ -68,7 +68,7 @@ func (r *Renderer) getPRStateIconAndColor(state core.PRState) (icon, color strin
 		color = colorGreen
 		icon = r.pickIcon(nfIconPROpen, fallbackIcon)
 	case core.PRStateMerged:
-		color = colorBlue
+		color = colorPurple
 		icon = r.pickIcon(nfIconPRMerged, fallbackIcon)
 	case core.PRStateClosed:
 		color = colorRed
