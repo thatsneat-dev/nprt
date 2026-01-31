@@ -30,7 +30,7 @@
 [nixpkgs](https://github.com/NixOS/nixpkgs) channels contain a given pull
 request.
 
-<a href="https://asciinema.org/a/5yBQZUxMM8DUYILC" target="_blank"><img src="https://asciinema.org/a/5yBQZUxMM8DUYILC.svg" /></a>
+![View cast here: https://asciinema.org/a/5yBQZUxMM8DUYILC](./docs/assets/nprt.svg)
 
 ## Features
 
