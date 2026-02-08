@@ -13,11 +13,31 @@
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
 
-      perSystem = { config, self', pkgs, system, ... }:
+      perSystem = { self', pkgs, ... }:
         let
-          version = builtins.readFile ./VERSION;
+          version = pkgs.lib.fileContents ./VERSION;
         in
         {
+          packages.nprt-man = pkgs.stdenvNoCC.mkDerivation {
+            pname = "nprt-man";
+            inherit version;
+            src = ./docs;
+
+            nativeBuildInputs = with pkgs; [ pandoc installShellFiles ];
+
+            buildPhase = ''
+              runHook preBuild
+              pandoc USAGE.md -s -t man -o nprt.1
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              runHook preInstall
+              installManPage nprt.1
+              runHook postInstall
+            '';
+          };
+
           packages.default = pkgs.buildGoModule {
             pname = "nprt";
             inherit version;
@@ -29,25 +49,34 @@
               "-X main.version=${version}"
             ];
 
-            meta = with pkgs.lib; {
+            postInstall = ''
+              mkdir -p $out/share/man/man1
+              cp ${self'.packages.nprt-man}/share/man/man1/nprt.1* $out/share/man/man1/
+            '';
+
+            meta = {
               description = "CLI tool to track which nixpkgs channels contain a given pull request";
               homepage = "https://github.com/taylrfnt/nixpkgs-pr-tracker";
-              license = licenses.mit;
-              maintainers = [ ];
+              license = pkgs.lib.licenses.mit;
+              mainProgram = "nprt";
+              platforms = pkgs.lib.platforms.unix;
             };
           };
 
           devShells.default = pkgs.mkShell {
-            buildInputs = with pkgs; [
+            packages = with pkgs; [
               go
               gofumpt
-              pkg-config
+              alejandra
+              statix
+              deadnix
             ];
           };
 
           apps.default = {
             type = "app";
             program = "${self'.packages.default}/bin/nprt";
+            meta.description = "CLI tool to track which nixpkgs channels contain a given pull request";
           };
         };
     };

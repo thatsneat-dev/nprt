@@ -1,6 +1,10 @@
 package render
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
+)
 
 // IssueWarning contains information for formatting an issue-not-PR warning.
 type IssueWarning struct {
@@ -9,16 +13,7 @@ type IssueWarning struct {
 	// State is "open", "closed", or "draft"
 	State      string
 	URL        string
-	RelatedPRs []RelatedPR
-}
-
-// RelatedPR contains information about a related PR for formatting.
-type RelatedPR struct {
-	Number int
-	Title  string
-	URL    string
-	// State is "open", "closed", "merged", or "draft"
-	State string
+	RelatedPRs []github.RelatedPR
 }
 
 // RenderIssueWarning outputs a warning that the input was an issue, not a PR.
@@ -75,7 +70,7 @@ func (r *Renderer) getIssueStateIconAndColor(state string) (icon, color string) 
 	return icon, color
 }
 
-func (r *Renderer) renderRelatedPRsTable(prs []RelatedPR) {
+func (r *Renderer) renderRelatedPRsTable(prs []github.RelatedPR) {
 	fmt.Fprintln(r.writer, "Related pull requests:")
 	fmt.Fprintln(r.writer)
 

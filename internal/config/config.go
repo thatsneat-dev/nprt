@@ -10,8 +10,7 @@ import (
 	"strings"
 )
 
-// DefaultChannels is the set of nixpkgs channels checked when no --channels flag is provided.
-var DefaultChannels = []Channel{
+var defaultChannels = []Channel{
 	{Name: "master", Branch: "master"},
 	{Name: "staging-next", Branch: "staging-next"},
 	{Name: "nixpkgs-unstable", Branch: "nixpkgs-unstable"},
@@ -19,10 +18,17 @@ var DefaultChannels = []Channel{
 	{Name: "nixos-unstable", Branch: "nixos-unstable"},
 }
 
+// GetDefaultChannels returns a copy of the default channels.
+func GetDefaultChannels() []Channel {
+	out := make([]Channel, len(defaultChannels))
+	copy(out, defaultChannels)
+	return out
+}
+
 // AvailableChannelNames returns the default channel names as a comma-separated string.
 func AvailableChannelNames() string {
-	names := make([]string, len(DefaultChannels))
-	for i, ch := range DefaultChannels {
+	names := make([]string, len(defaultChannels))
+	for i, ch := range defaultChannels {
 		names[i] = ch.Name
 	}
 	return strings.Join(names, ", ")
@@ -71,7 +77,7 @@ func ParsePRInput(input string) (int, error) {
 // matching channels from DefaultChannels. Returns all defaults if input is empty.
 func ParseChannels(input string) ([]Channel, error) {
 	if input == "" {
-		return DefaultChannels, nil
+		return GetDefaultChannels(), nil
 	}
 
 	requested := make(map[string]bool)
@@ -83,11 +89,11 @@ func ParseChannels(input string) ([]Channel, error) {
 	}
 
 	if len(requested) == 0 {
-		return DefaultChannels, nil
+		return GetDefaultChannels(), nil
 	}
 
 	channels := make([]Channel, 0)
-	for _, ch := range DefaultChannels {
+	for _, ch := range defaultChannels {
 		if requested[ch.Name] {
 			channels = append(channels, ch)
 		}

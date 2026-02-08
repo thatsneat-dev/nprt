@@ -74,8 +74,8 @@ func TestParseChannels_Default(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseChannels(\"\") returned error: %v", err)
 	}
-	if len(channels) != len(config.DefaultChannels) {
-		t.Errorf("ParseChannels(\"\") returned %d channels, want %d", len(channels), len(config.DefaultChannels))
+	if len(channels) != len(config.GetDefaultChannels()) {
+		t.Errorf("ParseChannels(\"\") returned %d channels, want %d", len(channels), len(config.GetDefaultChannels()))
 	}
 }
 

@@ -1,4 +1,4 @@
-.PHONY: build test format-check format vulncheck clean version-bump release-prep
+.PHONY: build test format-check format vulncheck clean version-bump release-prep man
 
 BINARY_NAME := nprt
 BUILD_DIR := bin
@@ -50,6 +50,17 @@ vuln-check:
 		govulncheck ./...; \
 	else \
 		echo "govulncheck not installed. Install with: go install golang.org/x/vuln/cmd/govulncheck@latest"; \
+		exit 1; \
+	fi
+
+man:
+	@echo "Generating manpage with pandoc..."
+	@if command -v pandoc >/dev/null 2>&1; then \
+		mkdir -p $(BUILD_DIR); \
+		pandoc docs/USAGE.md -s -t man -o $(BUILD_DIR)/nprt.1; \
+		echo "Manpage written to $(BUILD_DIR)/nprt.1"; \
+	else \
+		echo "pandoc not installed. Install pandoc to generate the manpage."; \
 		exit 1; \
 	fi
 

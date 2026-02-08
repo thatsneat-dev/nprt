@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -17,6 +16,13 @@ import (
 const (
 	DefaultBaseURL = "https://api.github.com"
 	DefaultTimeout = 30 * time.Second
+)
+
+const (
+	StateOpen   = "open"
+	StateClosed = "closed"
+	StateMerged = "merged"
+	StateDraft  = "draft"
 )
 
 // Client is a GitHub API client configured for NixOS/nixpkgs.
@@ -123,55 +129,7 @@ func NewClient(token string, log *zap.Logger) *Client {
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string) ([]byte, error) {
-	url := c.BaseURL + path
-
-	c.log.Debug("request", zap.String("method", method), zap.String("url", url))
-
-	req, err := http.NewRequestWithContext(ctx, method, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-	req.Header.Set("User-Agent", "nprt/1.0")
-	if c.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.Token)
-	}
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("network error talking to GitHub: %w", err)
-	}
-	defer resp.Body.Close()
-
-	c.log.Debug("response", zap.Int("status_code", resp.StatusCode), zap.String("status", resp.Status))
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode == http.StatusForbidden {
-		if resp.Header.Get("X-RateLimit-Remaining") == "0" {
-			return nil, &APIError{
-				StatusCode: resp.StatusCode,
-				Message:    "GitHub API rate limit exceeded. Try again later or set GITHUB_TOKEN.",
-			}
-		}
-		return nil, &APIError{
-			StatusCode: resp.StatusCode,
-			Message:    "GitHub authentication failed. Check your GITHUB_TOKEN.",
-		}
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, &APIError{
-			StatusCode: resp.StatusCode,
-			Message:    extractAPIMessage(body),
-		}
-	}
-
-	return body, nil
+	return c.doRequestWithAccept(ctx, method, path, "application/vnd.github.v3+json")
 }
 
 // extractAPIMessage attempts to parse a GitHub API error response and extract
