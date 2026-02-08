@@ -18,6 +18,22 @@
           version = builtins.readFile ./VERSION;
         in
         {
+          packages.nprt-man = pkgs.stdenvNoCC.mkDerivation {
+            pname = "nprt-man";
+            inherit version;
+            src = ./docs;
+
+            nativeBuildInputs = [ pkgs.pandoc ];
+
+            buildPhase = ''
+              pandoc USAGE.md -s -t man -o nprt.1
+            '';
+
+            installPhase = ''
+              install -Dm644 nprt.1 $out/share/man/man1/nprt.1
+            '';
+          };
+
           packages.default = pkgs.buildGoModule {
             pname = "nprt";
             inherit version;
@@ -28,6 +44,10 @@
             ldflags = [
               "-X main.version=${version}"
             ];
+
+            postInstall = ''
+              install -Dm644 ${self'.packages.nprt-man}/share/man/man1/nprt.1.gz $out/share/man/man1/nprt.1.gz
+            '';
 
             meta = with pkgs.lib; {
               description = "CLI tool to track which nixpkgs channels contain a given pull request";

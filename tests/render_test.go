@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/core"
+	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/render"
 )
 
@@ -239,7 +240,7 @@ func TestRenderIssueWarning_WithHyperlinks(t *testing.T) {
 		Title:  "Test issue",
 		State:  "open",
 		URL:    "https://github.com/NixOS/nixpkgs/issues/12345",
-		RelatedPRs: []render.RelatedPR{
+		RelatedPRs: []github.RelatedPR{
 			{
 				Number: 67890,
 				Title:  "Fix for issue",
@@ -283,7 +284,7 @@ func TestRenderIssueWarning_WithoutHyperlinks(t *testing.T) {
 		Title:  "Test issue",
 		State:  "open",
 		URL:    "https://github.com/NixOS/nixpkgs/issues/12345",
-		RelatedPRs: []render.RelatedPR{
+		RelatedPRs: []github.RelatedPR{
 			{
 				Number: 67890,
 				Title:  "Fix for issue",

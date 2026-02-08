@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"go.uber.org/zap"
 
+	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/cli"
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/config"
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/core"
 	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
@@ -67,7 +67,7 @@ func run() int {
 		fmt.Fprint(os.Stderr, usage)
 	}
 
-	if err := flag.CommandLine.Parse(reorderArgs(os.Args[1:])); err != nil {
+	if err := flag.CommandLine.Parse(cli.ReorderArgs(flag.CommandLine, os.Args[1:])); err != nil {
 		return 2
 	}
 
@@ -82,7 +82,7 @@ func run() int {
 
 	args := flag.Args()
 
-	if unknown := hasUnknownFlags(args); unknown != "" {
+	if unknown := cli.HasUnknownFlags(args); unknown != "" {
 		fmt.Fprintln(os.Stderr, render.FormatError("unknown flag "+unknown, useColor))
 		return 2
 	}
@@ -138,14 +138,7 @@ func run() int {
 				State:  notPRErr.State,
 				URL:    notPRErr.URL,
 			}
-			for _, pr := range notPRErr.RelatedPRs {
-				info.RelatedPRs = append(info.RelatedPRs, render.RelatedPR{
-					Number: pr.Number,
-					Title:  pr.Title,
-					URL:    pr.URL,
-					State:  pr.State,
-				})
-			}
+			info.RelatedPRs = notPRErr.RelatedPRs
 			errRenderer := render.NewRenderer(os.Stderr, useColor, useHyperlinks)
 			_ = errRenderer.RenderIssueWarning(info)
 			return 1
@@ -170,78 +163,4 @@ func run() int {
 	}
 
 	return 0
-}
-
-func hasUnknownFlags(args []string) string {
-	for _, a := range args {
-		if strings.HasPrefix(a, "-") && a != "-" && a != "--" {
-			return a
-		}
-	}
-	return ""
-}
-
-// boolFlag matches the interface used by the standard flag package for boolean flags.
-type boolFlag interface {
-	flag.Value
-	IsBoolFlag() bool
-}
-
-func isBoolFlag(f *flag.Flag) bool {
-	if bf, ok := f.Value.(boolFlag); ok {
-		return bf.IsBoolFlag()
-	}
-	return false
-}
-
-// parseFlagName extracts the flag name from a token like "-json" or "--channels=unstable".
-func parseFlagName(arg string) (name string, hasValue bool) {
-	s := strings.TrimLeft(arg, "-")
-	if i := strings.IndexByte(s, '='); i >= 0 {
-		return s[:i], true
-	}
-	return s, false
-}
-
-// reorderArgs moves all recognized flags (and their values) before positional
-// arguments while preserving their relative order. Tokens after a standalone
-// "--" are treated as positionals. Unknown flags are left in place and later
-// detected as errors after flag parsing.
-func reorderArgs(args []string) []string {
-	fs := flag.CommandLine
-
-	var flags []string
-	var positionals []string
-
-	i := 0
-	for i < len(args) {
-		a := args[i]
-
-		if a == "--" {
-			positionals = append(positionals, args[i:]...)
-			break
-		}
-
-		if strings.HasPrefix(a, "-") && a != "-" {
-			name, hasValue := parseFlagName(a)
-			if f := fs.Lookup(name); f != nil {
-				if hasValue || isBoolFlag(f) {
-					flags = append(flags, a)
-					i++
-				} else if i+1 < len(args) {
-					flags = append(flags, a, args[i+1])
-					i += 2
-				} else {
-					flags = append(flags, a)
-					i++
-				}
-				continue
-			}
-		}
-
-		positionals = append(positionals, a)
-		i++
-	}
-
-	return append(flags, positionals...)
 }

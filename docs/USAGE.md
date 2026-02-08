@@ -1,4 +1,26 @@
-# Usage
+---
+title: NPRT
+section: 1
+header: User Manual
+footer: nprt
+date: 2025
+---
+
+# NAME
+
+nprt - track which nixpkgs channels contain a given pull request
+
+# SYNOPSIS
+
+**nprt** \[*options*\] \<*PR number* | *PR URL*\>
+
+# DESCRIPTION
+
+**nprt** checks which nixpkgs release channels contain a given pull request
+by comparing the PR's merge commit against each channel branch via the
+GitHub API.
+
+# USAGE
 
 ```bash
 # Check by PR number
@@ -20,7 +42,7 @@ nprt --color=always 475593
 nprt --verbose 475593
 ```
 
-## Example Output
+# EXAMPLE OUTPUT
 
 ```
 ● PR #475593 (golang: 1.23.5 -> 1.23.6)
@@ -39,7 +61,7 @@ The PR state icon and author line are shown for merged PRs. In terminals with
 Nerd Fonts installed, state-specific icons are displayed (`\uf419` for merged,
 `\uf407` for open, etc.). Set `NO_NERD_FONTS=1` to use a simple dot (●) instead.
 
-## Options
+# OPTIONS
 
 | Option       | Description                                             |
 | ------------ | ------------------------------------------------------- |
@@ -51,7 +73,7 @@ Nerd Fonts installed, state-specific icons are displayed (`\uf419` for merged,
 | `--timeline-pages` | Max pages of timeline to fetch for related PRs (default: 3) |
 | `-h, --help` | Show help message                                       |
 
-## Environment Variables
+# ENVIRONMENT
 
 | Variable        | Description                                                                   |
 | --------------- | ----------------------------------------------------------------------------- |
@@ -59,7 +81,7 @@ Nerd Fonts installed, state-specific icons are displayed (`\uf419` for merged,
 | `NO_COLOR`      | Disable colors when set (respects [NO_COLOR](https://no-color.org/) standard) |
 | `NO_NERD_FONTS` | Disable Nerd Font icons and use fallback dots                                 |
 
-## Issue Handling
+# ISSUE HANDLING
 
 If you provide an issue number instead of a PR number, nprt will detect this
 and display a warning with the issue details and any related pull requests
@@ -78,7 +100,7 @@ Related pull requests:
 The related PRs are discovered via GitHub's timeline API. Use `--timeline-pages`
 to control how many pages of timeline events to fetch (default: 3).
 
-## Channels
+# CHANNELS
 
 By default, the following channels are checked:
 
@@ -88,7 +110,7 @@ By default, the following channels are checked:
 - `nixos-unstable-small` - Fast-moving unstable channel with fewer packages
 - `nixos-unstable` - Main unstable channel for NixOS
 
-## Exit Codes
+# EXIT CODES
 
 | Code | Meaning                                      |
 | ---- | -------------------------------------------- |
