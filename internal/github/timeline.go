@@ -130,7 +130,7 @@ func (c *Client) GetRelatedPRs(ctx context.Context, issueNumber int, maxPages in
 
 			state := issue.State
 			if issue.PullRequest.MergedAt != nil && *issue.PullRequest.MergedAt != "" {
-				state = "merged"
+				state = StateMerged
 			}
 
 			related = append(related, RelatedPR{

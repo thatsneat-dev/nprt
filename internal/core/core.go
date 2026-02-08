@@ -127,7 +127,7 @@ func determinePRState(pr *github.PullRequest) PRState {
 	if pr.Draft {
 		return PRStateDraft
 	}
-	if pr.State == "open" {
+	if pr.State == github.StateOpen {
 		return PRStateOpen
 	}
 	return PRStateClosed
