@@ -1,6 +1,9 @@
 package render
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	colorReset = "\033[0m"
@@ -60,6 +63,19 @@ func (r *Renderer) formatHeadline(icon, stateColor, text, url string) string {
 	}
 
 	return displayText
+}
+
+// sanitize strips ANSI escape sequences and other control characters from
+// untrusted input to prevent terminal injection.
+func sanitize(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if r == '\t' || r == '\n' || (r >= 0x20 && r != 0x7f) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // FormatError formats an error message with red color if color is enabled.

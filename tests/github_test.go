@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
+	"github.com/thatsneat-dev/nprt/internal/github"
 )
 
 func TestGetPullRequest_Success(t *testing.T) {
@@ -29,7 +29,7 @@ func TestGetPullRequest_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	pr, err := client.GetPullRequest(context.Background(), 476497)
@@ -56,7 +56,7 @@ func TestGetPullRequest_NotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	_, err := client.GetPullRequest(context.Background(), 999999)
@@ -96,7 +96,7 @@ func TestGetPullRequest_IsIssueNotPR(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	_, err := client.GetPullRequest(context.Background(), 12345)
@@ -127,7 +127,7 @@ func TestGetPullRequest_RateLimit(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	_, err := client.GetPullRequest(context.Background(), 123)
@@ -146,7 +146,7 @@ func TestCompareCommitWithBranch_CommitInBranch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	result, err := client.CompareCommitWithBranch(context.Background(), "abc123", "master")
@@ -165,7 +165,7 @@ func TestCompareCommitWithBranch_CommitNotInBranch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	result, err := client.CompareCommitWithBranch(context.Background(), "abc123", "nixos-unstable")
@@ -201,7 +201,7 @@ func TestGetPullRequest_IssueEndpointSaysPR(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	_, err := client.GetPullRequest(context.Background(), 99999)
@@ -224,7 +224,7 @@ func TestAPIError_ParsesJSONMessage(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	_, err := client.GetPullRequest(context.Background(), 123)
@@ -311,7 +311,7 @@ func TestGetPullRequest_IsIssueWithRelatedPRs(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	_, err := client.GetPullRequest(context.Background(), 12345)
@@ -370,7 +370,7 @@ func TestGetPullRequest_IsIssueTimelineFails(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	_, err := client.GetPullRequest(context.Background(), 12345)
@@ -427,7 +427,7 @@ func TestGetRelatedPRs_DeduplicatesPRs(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	related := client.GetRelatedPRs(context.Background(), 12345, 3)
@@ -470,7 +470,7 @@ func TestGetRelatedPRs_MergedAtSetsMergedState(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := github.NewClient("", zap.NewNop())
+	client := github.NewClient("", "", zap.NewNop())
 	client.BaseURL = server.URL
 
 	related := client.GetRelatedPRs(context.Background(), 12345, 3)

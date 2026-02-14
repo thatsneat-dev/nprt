@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/core"
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/render"
+	"github.com/thatsneat-dev/nprt/internal/core"
+	"github.com/thatsneat-dev/nprt/internal/github"
+	"github.com/thatsneat-dev/nprt/internal/render"
 )
 
 func TestRenderTable_NoColor_WithNerdFonts(t *testing.T) {

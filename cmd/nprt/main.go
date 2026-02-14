@@ -11,12 +11,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/cli"
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/config"
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/core"
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/logging"
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/render"
+	"github.com/thatsneat-dev/nprt/internal/cli"
+	"github.com/thatsneat-dev/nprt/internal/config"
+	"github.com/thatsneat-dev/nprt/internal/core"
+	"github.com/thatsneat-dev/nprt/internal/github"
+	"github.com/thatsneat-dev/nprt/internal/logging"
+	"github.com/thatsneat-dev/nprt/internal/render"
 )
 
 var version = "dev"
@@ -76,14 +76,24 @@ func run() int {
 		return 0
 	}
 
+	if timelinePages < 1 || timelinePages > 10 {
+		fmt.Fprintln(os.Stderr, "Error: --timeline-pages must be between 1 and 10")
+		return 2
+	}
+
 	// Compute color settings early so all errors can be styled
-	useColor := config.ShouldUseColor(colorMode)
+	useColor, err := config.ShouldUseColor(colorMode)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	stderrColor := config.ShouldUseColorForFile(colorMode, os.Stderr)
 	useHyperlinks := config.IsTerminal()
 
 	args := flag.Args()
 
 	if unknown := cli.HasUnknownFlags(args); unknown != "" {
-		fmt.Fprintln(os.Stderr, render.FormatError("unknown flag "+unknown, useColor))
+		fmt.Fprintln(os.Stderr, render.FormatError("unknown flag "+unknown, stderrColor))
 		return 2
 	}
 
@@ -94,13 +104,13 @@ func run() int {
 
 	prNumber, err := config.ParsePRInput(args[0])
 	if err != nil {
-		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
+		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), stderrColor))
 		return 2
 	}
 
 	channels, err := config.ParseChannels(channelsFlag)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
+		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), stderrColor))
 		return 2
 	}
 
@@ -112,7 +122,7 @@ func run() int {
 
 	log.Debug("fetching PR", zap.Int("pr", prNumber))
 
-	client := github.NewClient(token, log)
+	client := github.NewClient(token, "nprt/"+version, log)
 	client.TimelinePages = timelinePages
 	checker := core.NewChecker(client, log)
 
@@ -124,8 +134,8 @@ func run() int {
 	if err != nil {
 		// 403 errors (rate limit, auth failure) get a distinct exit code
 		var apiErr *github.APIError
-		if errors.As(err, &apiErr) && apiErr.StatusCode == 403 {
-			fmt.Fprintln(os.Stderr, render.FormatError(apiErr.Message, useColor))
+		if errors.As(err, &apiErr) && (apiErr.StatusCode == 403 || apiErr.StatusCode == 429) {
+			fmt.Fprintln(os.Stderr, render.FormatError(apiErr.Message, stderrColor))
 			return 3
 		}
 
@@ -139,12 +149,13 @@ func run() int {
 				URL:    notPRErr.URL,
 			}
 			info.RelatedPRs = notPRErr.RelatedPRs
-			errRenderer := render.NewRenderer(os.Stderr, useColor, useHyperlinks)
+			stderrHyperlinks := config.ShouldUseColorForFile("auto", os.Stderr)
+			errRenderer := render.NewRenderer(os.Stderr, stderrColor, stderrHyperlinks)
 			_ = errRenderer.RenderIssueWarning(info)
 			return 1
 		}
 
-		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), useColor))
+		fmt.Fprintln(os.Stderr, render.FormatError(err.Error(), stderrColor))
 		return 1
 	}
 
@@ -152,12 +163,12 @@ func run() int {
 
 	if jsonOutput {
 		if err := renderer.RenderJSON(status); err != nil {
-			fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), useColor))
+			fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), stderrColor))
 			return 1
 		}
 	} else {
 		if err := renderer.RenderTable(status); err != nil {
-			fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), useColor))
+			fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), stderrColor))
 			return 1
 		}
 	}

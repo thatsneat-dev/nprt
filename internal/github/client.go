@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"go.uber.org/zap"
@@ -29,6 +30,7 @@ const (
 type Client struct {
 	BaseURL       string
 	Token         string
+	UserAgent     string
 	HTTPClient    *http.Client
 	TimelinePages int
 	log           *zap.Logger
@@ -115,11 +117,12 @@ type Issue struct {
 	PullRequest *struct{} `json:"pull_request"`
 }
 
-// NewClient creates a new GitHub API client with the given token and logger.
-func NewClient(token string, log *zap.Logger) *Client {
+// NewClient creates a new GitHub API client with the given token, user agent, and logger.
+func NewClient(token string, userAgent string, log *zap.Logger) *Client {
 	return &Client{
 		BaseURL:       DefaultBaseURL,
 		Token:         token,
+		UserAgent:     userAgent,
 		TimelinePages: DefaultTimelinePages,
 		HTTPClient: &http.Client{
 			Timeout: DefaultTimeout,
@@ -214,7 +217,7 @@ func (c *Client) disambiguateNotFound(ctx context.Context, number int) error {
 
 // CompareCommitWithBranch checks if a commit is present in a branch.
 func (c *Client) CompareCommitWithBranch(ctx context.Context, commit, branch string) (*CompareResult, error) {
-	path := fmt.Sprintf("/repos/NixOS/nixpkgs/compare/%s...%s", commit, branch)
+	path := fmt.Sprintf("/repos/NixOS/nixpkgs/compare/%s...%s", url.PathEscape(commit), url.PathEscape(branch))
 
 	body, err := c.doRequest(ctx, http.MethodGet, path)
 	if err != nil {

@@ -163,7 +163,11 @@ func (c *Client) doRequestWithAccept(ctx context.Context, method, path, accept s
 	}
 
 	req.Header.Set("Accept", accept)
-	req.Header.Set("User-Agent", "nprt/1.0")
+	if c.UserAgent != "" {
+		req.Header.Set("User-Agent", c.UserAgent)
+	} else {
+		req.Header.Set("User-Agent", "nprt")
+	}
 	if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
 	}
@@ -181,8 +185,8 @@ func (c *Client) doRequestWithAccept(ctx context.Context, method, path, accept s
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
-	if resp.StatusCode == http.StatusForbidden {
-		if resp.Header.Get("X-RateLimit-Remaining") == "0" {
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
+		if resp.Header.Get("X-RateLimit-Remaining") == "0" || resp.StatusCode == http.StatusTooManyRequests {
 			return nil, &APIError{
 				StatusCode: resp.StatusCode,
 				Message:    "GitHub API rate limit exceeded. Try again later or set GITHUB_TOKEN.",
@@ -190,7 +194,7 @@ func (c *Client) doRequestWithAccept(ctx context.Context, method, path, accept s
 		}
 		return nil, &APIError{
 			StatusCode: resp.StatusCode,
-			Message:    "GitHub authentication failed. Check your GITHUB_TOKEN.",
+			Message:    extractAPIMessage(body),
 		}
 	}
 

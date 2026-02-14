@@ -1,4 +1,4 @@
-module github.com/taylrfnt/nixpkgs-pr-tracker
+module github.com/thatsneat-dev/nprt
 
 go 1.25.5
 

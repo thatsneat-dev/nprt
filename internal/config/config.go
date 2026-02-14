@@ -74,17 +74,18 @@ func ParsePRInput(input string) (int, error) {
 }
 
 // ParseChannels parses a comma-separated list of channel names and returns
-// matching channels from DefaultChannels. Returns all defaults if input is empty.
+// matching channels. Returns an error if any names are unknown.
+// Returns all defaults if input is empty.
 func ParseChannels(input string) ([]Channel, error) {
 	if input == "" {
 		return GetDefaultChannels(), nil
 	}
 
-	requested := make(map[string]bool)
+	var requested []string
 	for _, part := range strings.Split(input, ",") {
 		name := strings.TrimSpace(part)
 		if name != "" {
-			requested[name] = true
+			requested = append(requested, name)
 		}
 	}
 
@@ -92,15 +93,31 @@ func ParseChannels(input string) ([]Channel, error) {
 		return GetDefaultChannels(), nil
 	}
 
-	channels := make([]Channel, 0)
+	valid := make(map[string]bool)
 	for _, ch := range defaultChannels {
-		if requested[ch.Name] {
-			channels = append(channels, ch)
+		valid[ch.Name] = true
+	}
+
+	var unknown []string
+	for _, name := range requested {
+		if !valid[name] {
+			unknown = append(unknown, name)
 		}
 	}
 
-	if len(channels) == 0 {
-		return nil, fmt.Errorf("no matching channels found; available: %s", AvailableChannelNames())
+	if len(unknown) > 0 {
+		return nil, fmt.Errorf("unknown channels: %s; available: %s", strings.Join(unknown, ", "), AvailableChannelNames())
+	}
+
+	seen := make(map[string]bool)
+	var channels []Channel
+	for _, ch := range defaultChannels {
+		for _, name := range requested {
+			if ch.Name == name && !seen[name] {
+				channels = append(channels, ch)
+				seen[name] = true
+			}
+		}
 	}
 
 	return channels, nil
@@ -113,16 +130,21 @@ func GetGitHubToken() string {
 
 // IsTerminal returns true if stdout is connected to a terminal.
 func IsTerminal() bool {
-	fi, err := os.Stdout.Stat()
+	return isTerminalFile(os.Stdout)
+}
+
+func isTerminalFile(f *os.File) bool {
+	fi, err := f.Stat()
 	if err != nil {
 		return false
 	}
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
-// ShouldUseColor determines if ANSI color codes should be used based on
-// the color mode setting and environment.
-func ShouldUseColor(colorMode string) bool {
+// ShouldUseColorForFile determines if ANSI color codes should be used
+// for a specific file descriptor. This is useful when stderr needs
+// independent color detection from stdout.
+func ShouldUseColorForFile(colorMode string, f *os.File) bool {
 	switch colorMode {
 	case "always":
 		return true
@@ -132,6 +154,24 @@ func ShouldUseColor(colorMode string) bool {
 		if os.Getenv("NO_COLOR") != "" {
 			return false
 		}
-		return IsTerminal()
+		return isTerminalFile(f)
+	}
+}
+
+// ShouldUseColor determines if ANSI color codes should be used based on
+// the color mode setting and environment.
+func ShouldUseColor(colorMode string) (bool, error) {
+	switch colorMode {
+	case "always":
+		return true, nil
+	case "never":
+		return false, nil
+	case "auto", "":
+		if os.Getenv("NO_COLOR") != "" {
+			return false, nil
+		}
+		return IsTerminal(), nil
+	default:
+		return false, fmt.Errorf("invalid color mode %q: must be auto, always, or never", colorMode)
 	}
 }

@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/config"
+	"github.com/thatsneat-dev/nprt/internal/config"
 )
 
 func TestParsePRInput_ValidNumber(t *testing.T) {

@@ -3,6 +3,7 @@ package cli
 
 import (
 	"flag"
+	"strconv"
 	"strings"
 )
 
@@ -73,6 +74,12 @@ func ReorderArgs(fs *flag.FlagSet, args []string) []string {
 func HasUnknownFlags(args []string) string {
 	for _, a := range args {
 		if strings.HasPrefix(a, "-") && a != "-" && a != "--" {
+			// Don't treat negative numbers as flags; let them be
+			// caught by input validation with a clearer error.
+			trimmed := strings.TrimLeft(a, "-")
+			if _, err := strconv.Atoi(trimmed); err == nil {
+				continue
+			}
 			return a
 		}
 	}
