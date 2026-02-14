@@ -69,6 +69,86 @@ func TestParsePRInput_Invalid(t *testing.T) {
 	}
 }
 
+func TestShouldUseColor_InvalidMode(t *testing.T) {
+	invalidModes := []string{"invalid", "yes", "true", "on"}
+	for _, mode := range invalidModes {
+		_, err := config.ShouldUseColor(mode)
+		if err == nil {
+			t.Errorf("ShouldUseColor(%q) should have returned error", mode)
+		}
+	}
+}
+
+func TestShouldUseColor_ValidModes(t *testing.T) {
+	tests := []struct {
+		mode     string
+		expected bool
+	}{
+		{"always", true},
+		{"never", false},
+	}
+	for _, tc := range tests {
+		result, err := config.ShouldUseColor(tc.mode)
+		if err != nil {
+			t.Errorf("ShouldUseColor(%q) returned error: %v", tc.mode, err)
+		}
+		if result != tc.expected {
+			t.Errorf("ShouldUseColor(%q) = %v, want %v", tc.mode, result, tc.expected)
+		}
+	}
+}
+
+func TestShouldUseHyperlinks_InvalidMode(t *testing.T) {
+	invalidModes := []string{"invalid", "yes", "true", "on"}
+	for _, mode := range invalidModes {
+		_, err := config.ShouldUseHyperlinks(mode)
+		if err == nil {
+			t.Errorf("ShouldUseHyperlinks(%q) should have returned error", mode)
+		}
+	}
+}
+
+func TestShouldUseHyperlinks_ValidModes(t *testing.T) {
+	tests := []struct {
+		mode     string
+		expected bool
+	}{
+		{"always", true},
+		{"never", false},
+	}
+	for _, tc := range tests {
+		result, err := config.ShouldUseHyperlinks(tc.mode)
+		if err != nil {
+			t.Errorf("ShouldUseHyperlinks(%q) returned error: %v", tc.mode, err)
+		}
+		if result != tc.expected {
+			t.Errorf("ShouldUseHyperlinks(%q) = %v, want %v", tc.mode, result, tc.expected)
+		}
+	}
+}
+
+func TestShouldUseHyperlinks_NoHyperlinksEnv(t *testing.T) {
+	t.Setenv("NO_HYPERLINKS", "1")
+	result, err := config.ShouldUseHyperlinks("auto")
+	if err != nil {
+		t.Fatalf("ShouldUseHyperlinks returned error: %v", err)
+	}
+	if result {
+		t.Error("ShouldUseHyperlinks should return false when NO_HYPERLINKS is set")
+	}
+}
+
+func TestShouldUseHyperlinks_IgnoresNoColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	result, err := config.ShouldUseHyperlinks("always")
+	if err != nil {
+		t.Fatalf("ShouldUseHyperlinks returned error: %v", err)
+	}
+	if !result {
+		t.Error("ShouldUseHyperlinks(always) should not be affected by NO_COLOR")
+	}
+}
+
 func TestParseChannels_Default(t *testing.T) {
 	channels, err := config.ParseChannels("")
 	if err != nil {

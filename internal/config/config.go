@@ -141,6 +141,41 @@ func isTerminalFile(f *os.File) bool {
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
+// ShouldUseHyperlinks determines if OSC 8 hyperlinks should be used based on
+// the hyperlink mode setting and environment. Hyperlinks are independent of
+// color: NO_COLOR does not disable hyperlinks, but NO_HYPERLINKS does.
+func ShouldUseHyperlinks(hyperlinkMode string) (bool, error) {
+	switch hyperlinkMode {
+	case "always":
+		return true, nil
+	case "never":
+		return false, nil
+	case "auto", "":
+		if os.Getenv("NO_HYPERLINKS") != "" {
+			return false, nil
+		}
+		return IsTerminal(), nil
+	default:
+		return false, fmt.Errorf("invalid hyperlink mode %q: must be auto, always, or never", hyperlinkMode)
+	}
+}
+
+// ShouldUseHyperlinksForFile determines if OSC 8 hyperlinks should be used
+// for a specific file descriptor. Hyperlinks are independent of color support.
+func ShouldUseHyperlinksForFile(hyperlinkMode string, f *os.File) bool {
+	switch hyperlinkMode {
+	case "always":
+		return true
+	case "never":
+		return false
+	default:
+		if os.Getenv("NO_HYPERLINKS") != "" {
+			return false
+		}
+		return isTerminalFile(f)
+	}
+}
+
 // ShouldUseColorForFile determines if ANSI color codes should be used
 // for a specific file descriptor. This is useful when stderr needs
 // independent color detection from stdout.

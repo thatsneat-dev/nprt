@@ -32,6 +32,7 @@ Arguments:
 Options:
   --channels         Comma-separated list of channels to check (default: master,staging-next,nixpkgs-unstable,nixos-unstable-small,nixos-unstable)
   --color            Color output mode: auto, always, never (default: auto)
+  --hyperlinks       Hyperlink mode: auto, always, never (default: auto)
   --json             Output results as JSON
   --timeline-pages   Number of timeline pages to fetch for related PRs (default: 3)
   --verbose          Show detailed progress and debug information
@@ -50,6 +51,7 @@ func run() int {
 	var (
 		channelsFlag  string
 		colorMode     string
+		hyperlinkMode string
 		jsonOutput    bool
 		timelinePages int
 		verbose       bool
@@ -58,6 +60,7 @@ func run() int {
 
 	flag.StringVar(&channelsFlag, "channels", "", "Comma-separated list of channels to check")
 	flag.StringVar(&colorMode, "color", "auto", "Color output: auto, always, never")
+	flag.StringVar(&hyperlinkMode, "hyperlinks", "auto", "Hyperlinks: auto, always, never")
 	flag.BoolVar(&jsonOutput, "json", false, "Output results as JSON")
 	flag.IntVar(&timelinePages, "timeline-pages", github.DefaultTimelinePages, "Number of timeline pages to fetch for related PRs")
 	flag.BoolVar(&verbose, "verbose", false, "Show detailed progress and debug information")
@@ -88,7 +91,11 @@ func run() int {
 		return 2
 	}
 	stderrColor := config.ShouldUseColorForFile(colorMode, os.Stderr)
-	useHyperlinks := config.IsTerminal()
+	useHyperlinks, err := config.ShouldUseHyperlinks(hyperlinkMode)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
 
 	args := flag.Args()
 
@@ -149,7 +156,7 @@ func run() int {
 				URL:    notPRErr.URL,
 			}
 			info.RelatedPRs = notPRErr.RelatedPRs
-			stderrHyperlinks := config.ShouldUseColorForFile("auto", os.Stderr)
+			stderrHyperlinks := config.ShouldUseHyperlinksForFile(hyperlinkMode, os.Stderr)
 			errRenderer := render.NewRenderer(os.Stderr, stderrColor, stderrHyperlinks)
 			_ = errRenderer.RenderIssueWarning(info)
 			return 1
