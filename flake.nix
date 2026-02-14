@@ -1,5 +1,5 @@
 {
-  description = "nprt - NixPkgs PR Tracker";
+  description = "nprt - Nixpkgs PR Tracker";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -65,7 +65,7 @@
 
             postInstall = ''
               mkdir -p $out/share/man/man1
-              cp ${self'.packages.nprt-man}/share/man/man1/nprt.1* $out/share/man/man1/
+              ln -sf ${self'.packages.nprt-man}/share/man/man1/nprt.1* $out/share/man/man1/
             '';
 
             meta = {
