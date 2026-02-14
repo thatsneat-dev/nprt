@@ -38,6 +38,9 @@ nprt --json 475593
 # Force colors (useful for piping)
 nprt --color=always 475593
 
+# Force hyperlinks (independent of color)
+nprt --hyperlinks=always 475593
+
 # Verbose output for debugging
 nprt --verbose 475593
 ```
@@ -61,12 +64,17 @@ The PR state icon and author line are shown for merged PRs. In terminals with
 Nerd Fonts installed, state-specific icons are displayed (`\uf419` for merged,
 `\uf407` for open, etc.). Set `NO_NERD_FONTS=1` to use a simple dot (●) instead.
 
+Hyperlinks (OSC 8) are controlled independently from colors. Use `--hyperlinks`
+to override auto-detection, or set `NO_HYPERLINKS=1` to disable. Note that
+`NO_COLOR` does **not** disable hyperlinks.
+
 # OPTIONS
 
 | Option       | Description                                             |
 | ------------ | ------------------------------------------------------- |
 | `--channels` | Comma-separated list of channels to check               |
 | `--color`    | Color mode: `auto`, `always`, `never` (default: `auto`) |
+| `--hyperlinks` | Hyperlink mode: `auto`, `always`, `never` (default: `auto`) |
 | `--json`     | Output results as JSON                                  |
 | `--verbose`  | Show detailed progress and debug information            |
 | `--version`  | Print version and exit                                  |
@@ -75,11 +83,12 @@ Nerd Fonts installed, state-specific icons are displayed (`\uf419` for merged,
 
 # ENVIRONMENT
 
-| Variable        | Description                                                                   |
-| --------------- | ----------------------------------------------------------------------------- |
-| `GITHUB_TOKEN`  | GitHub personal access token for higher API rate limits                       |
-| `NO_COLOR`      | Disable colors when set (respects [NO_COLOR](https://no-color.org/) standard) |
-| `NO_NERD_FONTS` | Disable Nerd Font icons and use fallback dots                                 |
+| Variable          | Description                                                                   |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `GITHUB_TOKEN`    | GitHub personal access token for higher API rate limits                       |
+| `NO_COLOR`        | Disable colors when set (respects [NO_COLOR](https://no-color.org/) standard) |
+| `NO_HYPERLINKS`   | Disable OSC 8 hyperlinks when set                                            |
+| `NO_NERD_FONTS`   | Disable Nerd Font icons and use fallback dots                                 |
 
 # ISSUE HANDLING
 

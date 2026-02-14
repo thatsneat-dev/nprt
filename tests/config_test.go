@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"os"
 	"testing"
 
 	"github.com/thatsneat-dev/nprt/internal/config"
@@ -135,6 +136,28 @@ func TestShouldUseHyperlinks_NoHyperlinksEnv(t *testing.T) {
 	}
 	if result {
 		t.Error("ShouldUseHyperlinks should return false when NO_HYPERLINKS is set")
+	}
+}
+
+func TestShouldUseHyperlinksForFile_NoHyperlinksEnv(t *testing.T) {
+	t.Setenv("NO_HYPERLINKS", "1")
+	result := config.ShouldUseHyperlinksForFile("auto", os.Stdout)
+	if result {
+		t.Error("ShouldUseHyperlinksForFile should return false when NO_HYPERLINKS is set")
+	}
+}
+
+func TestShouldUseHyperlinksForFile_AlwaysMode(t *testing.T) {
+	result := config.ShouldUseHyperlinksForFile("always", os.Stdout)
+	if !result {
+		t.Error("ShouldUseHyperlinksForFile(always) should return true")
+	}
+}
+
+func TestShouldUseHyperlinksForFile_NeverMode(t *testing.T) {
+	result := config.ShouldUseHyperlinksForFile("never", os.Stdout)
+	if result {
+		t.Error("ShouldUseHyperlinksForFile(never) should return false")
 	}
 }
 
