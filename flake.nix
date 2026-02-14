@@ -9,11 +9,22 @@
     };
   };
 
-  outputs = inputs@{ flake-parts, ... }:
+  outputs =
+    inputs@{ flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
 
-      perSystem = { self', pkgs, ... }:
+      perSystem =
+        {
+          self',
+          pkgs,
+          ...
+        }:
         let
           version = pkgs.lib.fileContents ./VERSION;
         in
@@ -23,7 +34,10 @@
             inherit version;
             src = ./docs;
 
-            nativeBuildInputs = with pkgs; [ pandoc installShellFiles ];
+            nativeBuildInputs = with pkgs; [
+              pandoc
+              installShellFiles
+            ];
 
             buildPhase = ''
               runHook preBuild
@@ -38,7 +52,7 @@
             '';
           };
 
-          packages.default = pkgs.buildGoModule {
+          packages.nprt = pkgs.buildGoModule {
             pname = "nprt";
             inherit version;
             src = ./.;
@@ -56,7 +70,7 @@
 
             meta = {
               description = "CLI tool to track which nixpkgs channels contain a given pull request";
-              homepage = "https://github.com/taylrfnt/nixpkgs-pr-tracker";
+              homepage = "https://github.com/thatsneat-dev/nixpkgs-pr-tracker";
               license = pkgs.lib.licenses.mit;
               mainProgram = "nprt";
               platforms = pkgs.lib.platforms.unix;
@@ -73,9 +87,9 @@
             ];
           };
 
-          apps.default = {
+          apps.nprt = {
             type = "app";
-            program = "${self'.packages.default}/bin/nprt";
+            program = "${self'.packages.nprt}/bin/nprt";
             meta.description = "CLI tool to track which nixpkgs channels contain a given pull request";
           };
         };
