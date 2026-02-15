@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/core"
+	"github.com/thatsneat-dev/nprt/internal/core"
 )
 
 // RenderTable outputs the PR status as a formatted ASCII table.
 func (r *Renderer) RenderTable(status *core.PRStatus) error {
+	r.writeErr = nil
 	r.renderPRStatusLine(status)
 	r.renderAuthorLine(status)
-	fmt.Fprintln(r.writer)
+	r.println()
 
 	maxNameLen := len("CHANNEL")
 	for _, ch := range status.Channels {
@@ -21,18 +22,18 @@ func (r *Renderer) RenderTable(status *core.PRStatus) error {
 	}
 
 	headerFmt := fmt.Sprintf("%%-%ds  STATUS\n", maxNameLen)
-	fmt.Fprintf(r.writer, headerFmt, "CHANNEL")
+	r.printf(headerFmt, "CHANNEL")
 
 	dividerLen := maxNameLen + 2 + 6
-	fmt.Fprintln(r.writer, strings.Repeat("-", dividerLen))
+	r.println(strings.Repeat("-", dividerLen))
 
 	rowFmt := fmt.Sprintf("%%-%ds  %%s\n", maxNameLen)
 	for _, ch := range status.Channels {
 		icon := r.formatChannelStatus(ch.Status)
-		fmt.Fprintf(r.writer, rowFmt, ch.Name, fmt.Sprintf("  %s  ", icon))
+		r.printf(rowFmt, ch.Name, fmt.Sprintf("  %s  ", icon))
 	}
 
-	return nil
+	return r.writeErr
 }
 
 func (r *Renderer) renderPRStatusLine(status *core.PRStatus) {
@@ -41,19 +42,19 @@ func (r *Renderer) renderPRStatusLine(status *core.PRStatus) {
 	url := fmt.Sprintf("https://github.com/NixOS/nixpkgs/pull/%d", status.Number)
 
 	if status.Title != "" {
-		text = fmt.Sprintf("%s (%s)", text, status.Title)
+		text = fmt.Sprintf("%s (%s)", text, sanitize(status.Title))
 	}
 
 	displayText := r.formatHeadline(icon, stateColor, text, url)
-	fmt.Fprintln(r.writer, displayText)
+	r.println(displayText)
 }
 
 func (r *Renderer) renderAuthorLine(status *core.PRStatus) {
 	if status.Author != "" {
 		if r.useColor {
-			fmt.Fprintf(r.writer, "%sby: %s%s\n", colorGray, status.Author, colorReset)
+			r.printf("%sby: %s%s\n", colorGray, sanitize(status.Author), colorReset)
 		} else {
-			fmt.Fprintf(r.writer, "by: %s\n", status.Author)
+			r.printf("by: %s\n", sanitize(status.Author))
 		}
 	}
 }

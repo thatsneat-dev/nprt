@@ -10,8 +10,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/config"
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
+	"github.com/thatsneat-dev/nprt/internal/config"
+	"github.com/thatsneat-dev/nprt/internal/github"
 )
 
 // ChannelStatus indicates whether a PR's merge commit is present in a channel.
@@ -106,9 +106,17 @@ func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.C
 	wg.Add(len(channels))
 
 	for i, ch := range channels {
-		i, ch := i, ch // capture loop variables
 		go func() {
 			defer wg.Done()
+			if ctx.Err() != nil {
+				results[i] = ChannelResult{
+					Name:   ch.Name,
+					Branch: ch.Branch,
+					Status: StatusUnknown,
+					Error:  ctx.Err().Error(),
+				}
+				return
+			}
 			c.log.Debug("checking channel", zap.String("channel", ch.Name), zap.String("branch", ch.Branch))
 			results[i] = c.checkChannel(ctx, pr.MergeCommitSHA, ch)
 		}()

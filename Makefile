@@ -1,4 +1,4 @@
-.PHONY: build test format-check format vulncheck clean version-bump release-prep man
+.PHONY: build test format-check format vuln-check clean version-bump release-prep man
 
 BINARY_NAME := nprt
 BUILD_DIR := bin

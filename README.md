@@ -18,7 +18,7 @@
     <a href="https://github.com/thatsneat-dev/nprt/stargazers">
       <img alt="Stars" src="https://img.shields.io/github/stars/thatsneat-dev/nprt?style=for-the-badge&color=c69ff5&logoColor=D9E0EE&labelColor=302D41" />
     </a>
-    <a href="https://github.com/NotAShelf/nvf/issues">
+    <a href="https://github.com/thatsneat-dev/nprt/issues">
       <img alt="Issues" src="https://img.shields.io/github/issues/thatsneat-dev/nprt?style=for-the-badge&color=F5E0DC&logoColor=D9E0EE&labelColor=302D41" />
     </a>
     <a href="https://github.com/thatsneat-dev/nprt">
@@ -66,7 +66,7 @@ nix profile install github:thatsneat-dev/nprt
 Requires Go 1.25 or later:
 
 ```bash
-go install github.com/thatsneat-dev/nprt@latest
+go install github.com/thatsneat-dev/nprt/cmd/nprt@latest
 ```
 
 ## Usage

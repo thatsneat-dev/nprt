@@ -3,7 +3,7 @@ package render
 import (
 	"fmt"
 
-	"github.com/taylrfnt/nixpkgs-pr-tracker/internal/github"
+	"github.com/thatsneat-dev/nprt/internal/github"
 )
 
 // IssueWarning contains information for formatting an issue-not-PR warning.
@@ -19,23 +19,24 @@ type IssueWarning struct {
 // RenderIssueWarning outputs a warning that the input was an issue, not a PR.
 // It renders the issue with appropriate icons/colors and lists related PRs in a table.
 func (r *Renderer) RenderIssueWarning(info IssueWarning) error {
+	r.writeErr = nil
 	r.renderWarningLine()
 	r.renderIssueLine(info)
-	fmt.Fprintln(r.writer)
+	r.println()
 
 	if len(info.RelatedPRs) > 0 {
 		r.renderRelatedPRsTable(info.RelatedPRs)
 	}
 
-	return nil
+	return r.writeErr
 }
 
 func (r *Renderer) renderWarningLine() {
 	msg := "WARNING: input is an issue, not a pull request"
 	if r.useColor {
-		fmt.Fprintln(r.writer, colorRed+msg+colorReset)
+		r.println(colorRed + msg + colorReset)
 	} else {
-		fmt.Fprintln(r.writer, msg)
+		r.println(msg)
 	}
 }
 
@@ -44,11 +45,11 @@ func (r *Renderer) renderIssueLine(info IssueWarning) {
 	text := fmt.Sprintf("Issue #%d", info.Number)
 
 	if info.Title != "" {
-		text = fmt.Sprintf("%s (%s)", text, info.Title)
+		text = fmt.Sprintf("%s (%s)", text, sanitize(info.Title))
 	}
 
 	displayText := r.formatHeadline(icon, stateColor, text, info.URL)
-	fmt.Fprintln(r.writer, displayText)
+	r.println(displayText)
 }
 
 // getIssueStateIconAndColor returns the icon and color for a given issue state.
@@ -71,8 +72,8 @@ func (r *Renderer) getIssueStateIconAndColor(state string) (icon, color string) 
 }
 
 func (r *Renderer) renderRelatedPRsTable(prs []github.RelatedPR) {
-	fmt.Fprintln(r.writer, "Related pull requests:")
-	fmt.Fprintln(r.writer)
+	r.println("Related pull requests:")
+	r.println()
 
 	maxNumLen := 2
 	for _, pr := range prs {
@@ -90,17 +91,17 @@ func (r *Renderer) renderRelatedPRsTable(prs []github.RelatedPR) {
 		if r.useColor {
 			iconDisplay := stateColor + icon + colorReset
 			numDisplay := fmt.Sprintf("%s%-*s%s", colorBold, maxNumLen, numStr, colorReset)
-			content = fmt.Sprintf("%s  %s  %s", iconDisplay, numDisplay, pr.Title)
+			content = fmt.Sprintf("%s  %s  %s", iconDisplay, numDisplay, sanitize(pr.Title))
 		} else {
 			numDisplay := fmt.Sprintf("%-*s", maxNumLen, numStr)
-			content = fmt.Sprintf("%s  %s  %s", icon, numDisplay, pr.Title)
+			content = fmt.Sprintf("%s  %s  %s", icon, numDisplay, sanitize(pr.Title))
 		}
 
 		if r.useHyperlinks && pr.URL != "" {
 			content = wrapHyperlink(content, pr.URL)
 		}
 
-		fmt.Fprintf(r.writer, "  %s\n", content)
+		r.printf("  %s\n", content)
 	}
 }
 
