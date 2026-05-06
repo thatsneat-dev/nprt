@@ -37,6 +37,7 @@ https://github.com/NixOS/nixpkgs/pull/476497
 | `--channels` | comma-separated list | Override the default channel list |
 | `--color` | `auto`, `always`, `never` | Control ANSI color output (default: `auto`) |
 | `--json` | boolean | Output JSON instead of table |
+| `--netgraph` | boolean | Append an ASCII propagation graph with channel head commit IDs |
 | `-h, --help` | boolean | Print usage information |
 | `--version` | boolean | Print version and exit |
 

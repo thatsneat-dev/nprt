@@ -40,6 +40,7 @@ request.
 - Colored terminal output with Nerd Font icons
 - Clickable hyperlinks to PRs (in supported terminals)
 - JSON output for scripting
+- Optional netgraph showing the PR path and branch head commit IDs
 - Parallel channel checking for fast results
 
 ## Installation
@@ -83,4 +84,7 @@ nprt https://github.com/NixOS/nixpkgs/pull/475593
 
 # JSON output for scripting
 nprt --json 475593
+
+# Show the channel propagation graph with branch commit IDs
+nprt --netgraph 475593
 ```

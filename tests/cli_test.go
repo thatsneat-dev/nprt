@@ -13,6 +13,7 @@ func testFlagSet() *flag.FlagSet {
 	fs.String("channels", "", "")
 	fs.String("color", "auto", "")
 	fs.Bool("json", false, "")
+	fs.Bool("netgraph", false, "")
 	fs.Int("timeline-pages", 3, "")
 	fs.Bool("verbose", false, "")
 	fs.Bool("version", false, "")

@@ -35,6 +35,9 @@ nprt --channels=master,nixos-unstable 475593
 # JSON output for scripting
 nprt --json 475593
 
+# Show a propagation graph with branch head commits
+nprt --netgraph 475593
+
 # Force colors (useful for piping)
 nprt --color=always 475593
 
@@ -60,6 +63,25 @@ nixos-unstable-small    ✓
 nixos-unstable          ✗
 ```
 
+With `--netgraph`, nprt keeps the table output and appends a graph showing the
+likely nixpkgs propagation path plus the current head commit for each checked
+channel branch:
+
+```
+NETGRAPH
+  ◆ PR merge abc123def456 (base: staging)
+  legend: ● present  ○ pending  ? unknown
+
+  staging                 staging-next            master                  channels
+  ──────────────────────  ──────────────────────  ──────────────────────  ──────────────────────
+  ◆ abc123def456          │                       │                       │                       PR merge
+  ├──────────────▶        ● feedface1234 ✓        │                       │                       manual staging batch
+  │                       ├──────────────▶        ● cafe1234beef ✓        │                       manual PR
+  │                       │                       ├──────────────▶        ○ deadbeef1234 ✗        nixpkgs-unstable
+  │                       │                       ├──────────────▶        ○ badc0ffee123 ✗        nixos-unstable
+  │                       │                       └──────────────▶        ● facefeed1234 ✓        nixos-unstable-small
+```
+
 The PR state icon and author line are shown for merged PRs. In terminals with
 Nerd Fonts installed, state-specific icons are displayed (`\uf419` for merged,
 `\uf407` for open, etc.). Set `NO_NERD_FONTS=1` to use a simple dot (●) instead.
@@ -76,6 +98,7 @@ to override auto-detection, or set `NO_HYPERLINKS=1` to disable. Note that
 | `--color`    | Color mode: `auto`, `always`, `never` (default: `auto`) |
 | `--hyperlinks` | Hyperlink mode: `auto`, `always`, `never` (default: `auto`) |
 | `--json`     | Output results as JSON                                  |
+| `--netgraph` | Append an ASCII propagation graph with branch commit IDs |
 | `--verbose`  | Show detailed progress and debug information            |
 | `--version`  | Print version and exit                                  |
 | `--timeline-pages` | Max pages of timeline to fetch for related PRs (default: 3) |
@@ -118,6 +141,14 @@ By default, the following channels are checked:
 - `nixpkgs-unstable` - Unstable channel for non-NixOS users
 - `nixos-unstable-small` - Fast-moving unstable channel with fewer packages
 - `nixos-unstable` - Main unstable channel for NixOS
+
+Most PRs merge directly to `master`; those can advance to `nixpkgs-unstable`,
+`nixos-unstable-small`, and `nixos-unstable` after the corresponding Hydra
+jobsets succeed. Mass-rebuild PRs typically merge to `staging`, then are batched
+through `staging-next`, and finally reach `master` via a manual PR before the
+unstable channels can update. Stable fixes use `release-YY.MM` branches, or
+`staging-YY.MM` / `staging-next-YY.MM` for stable mass rebuilds, before the
+stable channel branches move.
 
 # EXIT CODES
 

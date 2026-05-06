@@ -176,7 +176,7 @@ func (c *Client) doRequestWithAccept(ctx context.Context, method, path, accept s
 	if err != nil {
 		return nil, fmt.Errorf("network error talking to GitHub: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	c.log.Debug("response", zap.Int("status_code", resp.StatusCode), zap.String("status", resp.Status))
 

@@ -59,6 +59,14 @@ type CompareResult struct {
 	BehindBy int    `json:"behind_by"`
 }
 
+// Branch represents the branch metadata needed by the application.
+type Branch struct {
+	Name   string `json:"name"`
+	Commit struct {
+		SHA string `json:"sha"`
+	} `json:"commit"`
+}
+
 // APIError represents an error response from the GitHub API.
 type APIError struct {
 	StatusCode int
@@ -227,6 +235,23 @@ func (c *Client) CompareCommitWithBranch(ctx context.Context, commit, branch str
 	var result CompareResult
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse compare response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetBranch fetches metadata for a branch.
+func (c *Client) GetBranch(ctx context.Context, branch string) (*Branch, error) {
+	path := fmt.Sprintf("/repos/NixOS/nixpkgs/branches/%s", url.PathEscape(branch))
+
+	body, err := c.doRequest(ctx, http.MethodGet, path)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Branch
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse branch response: %w", err)
 	}
 
 	return &result, nil

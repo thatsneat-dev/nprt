@@ -19,7 +19,7 @@ func TestGetPullRequest_Success(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"number": 476497,
 			"state": "closed",
 			"merged": true,
@@ -52,7 +52,7 @@ func TestGetPullRequest_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Both /pulls and /issues return 404 - number doesn't exist
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message": "Not Found"}`))
+		_, _ = w.Write([]byte(`{"message": "Not Found"}`))
 	}))
 	defer server.Close()
 
@@ -78,13 +78,13 @@ func TestGetPullRequest_IsIssueNotPR(t *testing.T) {
 		if strings.Contains(r.URL.Path, "/pulls/") {
 			// /pulls returns 404 because it's not a PR
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"message": "Not Found"}`))
+			_, _ = w.Write([]byte(`{"message": "Not Found"}`))
 			return
 		}
 		if strings.Contains(r.URL.Path, "/issues/") {
 			// /issues returns 200 with an issue (no pull_request field)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"number": 12345,
 				"title": "Some bug report",
 				"state": "open",
@@ -123,7 +123,7 @@ func TestGetPullRequest_RateLimit(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-RateLimit-Remaining", "0")
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"message": "rate limit exceeded"}`))
+		_, _ = w.Write([]byte(`{"message": "rate limit exceeded"}`))
 	}))
 	defer server.Close()
 
@@ -142,7 +142,7 @@ func TestGetPullRequest_RateLimit(t *testing.T) {
 func TestCompareCommitWithBranch_CommitInBranch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ahead", "ahead_by": 100, "behind_by": 0}`))
+		_, _ = w.Write([]byte(`{"status": "ahead", "ahead_by": 100, "behind_by": 0}`))
 	}))
 	defer server.Close()
 
@@ -161,7 +161,7 @@ func TestCompareCommitWithBranch_CommitInBranch(t *testing.T) {
 func TestCompareCommitWithBranch_CommitNotInBranch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "behind", "ahead_by": 0, "behind_by": 5}`))
+		_, _ = w.Write([]byte(`{"status": "behind", "ahead_by": 0, "behind_by": 5}`))
 	}))
 	defer server.Close()
 
@@ -177,19 +177,47 @@ func TestCompareCommitWithBranch_CommitNotInBranch(t *testing.T) {
 	}
 }
 
+func TestGetBranch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/branches/master") {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"name": "master",
+			"commit": {"sha": "deadbeef1234567890"}
+		}`))
+	}))
+	defer server.Close()
+
+	client := github.NewClient("", "", zap.NewNop())
+	client.BaseURL = server.URL
+
+	branch, err := client.GetBranch(context.Background(), "master")
+	if err != nil {
+		t.Fatalf("GetBranch returned error: %v", err)
+	}
+	if branch.Name != "master" {
+		t.Errorf("Name = %q, want master", branch.Name)
+	}
+	if branch.Commit.SHA != "deadbeef1234567890" {
+		t.Errorf("Commit.SHA = %q, want deadbeef1234567890", branch.Commit.SHA)
+	}
+}
+
 func TestGetPullRequest_IssueEndpointSaysPR(t *testing.T) {
 	// Edge case: /pulls returns 404, but /issues returns 200 with pull_request field
 	// This indicates an unexpected API state (auth issue, API anomaly, etc.)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/pulls/") {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"message": "Not Found"}`))
+			_, _ = w.Write([]byte(`{"message": "Not Found"}`))
 			return
 		}
 		if strings.Contains(r.URL.Path, "/issues/") {
 			// Issue endpoint says it's a PR (has pull_request field)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"number": 99999,
 				"title": "Some PR",
 				"html_url": "https://github.com/NixOS/nixpkgs/pull/99999",
@@ -220,7 +248,7 @@ func TestAPIError_ParsesJSONMessage(t *testing.T) {
 	// Test that API errors extract the "message" field from JSON responses
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"message": "Validation Failed", "documentation_url": "https://docs.github.com"}`))
+		_, _ = w.Write([]byte(`{"message": "Validation Failed", "documentation_url": "https://docs.github.com"}`))
 	}))
 	defer server.Close()
 
@@ -245,12 +273,12 @@ func TestGetPullRequest_IsIssueWithRelatedPRs(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/pulls/") {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"message": "Not Found"}`))
+			_, _ = w.Write([]byte(`{"message": "Not Found"}`))
 			return
 		}
 		if strings.Contains(r.URL.Path, "/timeline") {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`[
+			_, _ = w.Write([]byte(`[
 				{
 					"event": "cross-referenced",
 					"source": {
@@ -299,7 +327,7 @@ func TestGetPullRequest_IsIssueWithRelatedPRs(t *testing.T) {
 		}
 		if strings.Contains(r.URL.Path, "/issues/") {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"number": 12345,
 				"title": "Some bug report",
 				"state": "open",
@@ -348,17 +376,17 @@ func TestGetPullRequest_IsIssueTimelineFails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/pulls/") {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"message": "Not Found"}`))
+			_, _ = w.Write([]byte(`{"message": "Not Found"}`))
 			return
 		}
 		if strings.Contains(r.URL.Path, "/timeline") {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"message": "Internal Server Error"}`))
+			_, _ = w.Write([]byte(`{"message": "Internal Server Error"}`))
 			return
 		}
 		if strings.Contains(r.URL.Path, "/issues/") {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"number": 12345,
 				"title": "Some bug report",
 				"state": "open",
@@ -396,7 +424,7 @@ func TestGetPullRequest_IsIssueTimelineFails(t *testing.T) {
 func TestGetRelatedPRs_DeduplicatesPRs(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[
+		_, _ = w.Write([]byte(`[
 			{
 				"event": "cross-referenced",
 				"source": {
@@ -439,7 +467,7 @@ func TestGetRelatedPRs_DeduplicatesPRs(t *testing.T) {
 func TestGetRelatedPRs_MergedAtSetsMergedState(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[
+		_, _ = w.Write([]byte(`[
 			{
 				"event": "cross-referenced",
 				"source": {

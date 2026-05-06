@@ -34,6 +34,7 @@ Options:
   --color            Color output mode: auto, always, never (default: auto)
   --hyperlinks       Hyperlink mode: auto, always, never (default: auto)
   --json             Output results as JSON
+  --netgraph         Show an ASCII graph with branch head commits (table output only)
   --timeline-pages   Number of timeline pages to fetch for related PRs (default: 3)
   --verbose          Show detailed progress and debug information
   --version          Print version and exit
@@ -53,6 +54,7 @@ func run() int {
 		colorMode     string
 		hyperlinkMode string
 		jsonOutput    bool
+		netgraph      bool
 		timelinePages int
 		verbose       bool
 		showVersion   bool
@@ -62,6 +64,7 @@ func run() int {
 	flag.StringVar(&colorMode, "color", "auto", "Color output: auto, always, never")
 	flag.StringVar(&hyperlinkMode, "hyperlinks", "auto", "Hyperlinks: auto, always, never")
 	flag.BoolVar(&jsonOutput, "json", false, "Output results as JSON")
+	flag.BoolVar(&netgraph, "netgraph", false, "Show an ASCII graph with branch head commits")
 	flag.IntVar(&timelinePages, "timeline-pages", github.DefaultTimelinePages, "Number of timeline pages to fetch for related PRs")
 	flag.BoolVar(&verbose, "verbose", false, "Show detailed progress and debug information")
 	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
@@ -81,6 +84,10 @@ func run() int {
 
 	if timelinePages < 1 || timelinePages > 10 {
 		fmt.Fprintln(os.Stderr, "Error: --timeline-pages must be between 1 and 10")
+		return 2
+	}
+	if jsonOutput && netgraph {
+		fmt.Fprintln(os.Stderr, "Error: --netgraph cannot be used with --json")
 		return 2
 	}
 
@@ -137,7 +144,9 @@ func run() int {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	status, err := checker.CheckPR(ctx, prNumber, channels)
+	status, err := checker.CheckPRWithOptions(ctx, prNumber, channels, core.CheckOptions{
+		IncludeNetgraph: netgraph,
+	})
 	if err != nil {
 		// 403 errors (rate limit, auth failure) get a distinct exit code
 		var apiErr *github.APIError
@@ -177,6 +186,12 @@ func run() int {
 		if err := renderer.RenderTable(status); err != nil {
 			fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), stderrColor))
 			return 1
+		}
+		if netgraph {
+			if err := renderer.RenderNetgraph(status); err != nil {
+				fmt.Fprintln(os.Stderr, render.FormatError("rendering output: "+err.Error(), stderrColor))
+				return 1
+			}
 		}
 	}
 

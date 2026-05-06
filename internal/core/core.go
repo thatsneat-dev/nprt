@@ -35,10 +35,11 @@ const (
 
 // ChannelResult holds the propagation status for a single channel.
 type ChannelResult struct {
-	Name   string        `json:"name"`
-	Branch string        `json:"branch"`
-	Status ChannelStatus `json:"status"`
-	Error  string        `json:"error,omitempty"`
+	Name       string        `json:"name"`
+	Branch     string        `json:"branch"`
+	Status     ChannelStatus `json:"status"`
+	HeadCommit string        `json:"head_commit,omitempty"`
+	Error      string        `json:"error,omitempty"`
 }
 
 // PRStatus contains the full status of a PR including all channel results.
@@ -47,8 +48,14 @@ type PRStatus struct {
 	Title       string          `json:"title,omitempty"`
 	Author      string          `json:"author,omitempty"`
 	State       PRState         `json:"state"`
+	BaseBranch  string          `json:"-"`
 	MergeCommit string          `json:"merge_commit,omitempty"`
 	Channels    []ChannelResult `json:"channels"`
+}
+
+// CheckOptions controls optional data collected while checking a PR.
+type CheckOptions struct {
+	IncludeNetgraph bool
 }
 
 // Checker queries GitHub to determine PR status and channel propagation.
@@ -64,6 +71,11 @@ func NewChecker(client *github.Client, log *zap.Logger) *Checker {
 
 // CheckPR fetches a PR and checks its propagation across the given channels.
 func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.Channel) (*PRStatus, error) {
+	return c.CheckPRWithOptions(ctx, prNumber, channels, CheckOptions{})
+}
+
+// CheckPRWithOptions fetches a PR and checks its propagation across the given channels.
+func (c *Checker) CheckPRWithOptions(ctx context.Context, prNumber int, channels []config.Channel, opts CheckOptions) (*PRStatus, error) {
 	pr, err := c.client.GetPullRequest(ctx, prNumber)
 	if err != nil {
 		return nil, err
@@ -74,6 +86,7 @@ func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.C
 		Title:       pr.Title,
 		Author:      pr.User.Login,
 		State:       determinePRState(pr),
+		BaseBranch:  pr.Base.Ref,
 		MergeCommit: pr.MergeCommitSHA,
 	}
 
@@ -81,11 +94,15 @@ func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.C
 		c.log.Debug("PR not merged, skipping channel checks", zap.Int("pr", prNumber))
 		results := make([]ChannelResult, len(channels))
 		for i, ch := range channels {
-			results[i] = ChannelResult{
+			result := ChannelResult{
 				Name:   ch.Name,
 				Branch: ch.Branch,
 				Status: StatusNotPresent,
 			}
+			if opts.IncludeNetgraph {
+				result.HeadCommit = c.getBranchHeadCommit(ctx, ch)
+			}
+			results[i] = result
 		}
 		status.Channels = SortChannelResults(results)
 		return status, nil
@@ -95,7 +112,8 @@ func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.C
 		return nil, fmt.Errorf("PR #%d has no merge commit SHA", prNumber)
 	}
 
-	c.log.Debug("checking channels",
+	c.log.Debug(
+		"checking channels",
 		zap.Int("count", len(channels)),
 		zap.String("commit", pr.MergeCommitSHA[:12]),
 	)
@@ -118,7 +136,7 @@ func (c *Checker) CheckPR(ctx context.Context, prNumber int, channels []config.C
 				return
 			}
 			c.log.Debug("checking channel", zap.String("channel", ch.Name), zap.String("branch", ch.Branch))
-			results[i] = c.checkChannel(ctx, pr.MergeCommitSHA, ch)
+			results[i] = c.checkChannel(ctx, pr.MergeCommitSHA, ch, opts)
 		}()
 	}
 
@@ -142,11 +160,15 @@ func determinePRState(pr *github.PullRequest) PRState {
 }
 
 // checkChannel determines if a commit is present in the given channel branch.
-func (c *Checker) checkChannel(ctx context.Context, commit string, ch config.Channel) ChannelResult {
+func (c *Checker) checkChannel(ctx context.Context, commit string, ch config.Channel, opts CheckOptions) ChannelResult {
 	result := ChannelResult{
 		Name:   ch.Name,
 		Branch: ch.Branch,
 		Status: StatusUnknown,
+	}
+
+	if opts.IncludeNetgraph {
+		result.HeadCommit = c.getBranchHeadCommit(ctx, ch)
 	}
 
 	compare, err := c.client.CompareCommitWithBranch(ctx, commit, ch.Branch)
@@ -165,6 +187,15 @@ func (c *Checker) checkChannel(ctx context.Context, commit string, ch config.Cha
 	}
 
 	return result
+}
+
+func (c *Checker) getBranchHeadCommit(ctx context.Context, ch config.Channel) string {
+	branch, err := c.client.GetBranch(ctx, ch.Branch)
+	if err != nil {
+		c.log.Debug("branch head check failed", zap.String("channel", ch.Name), zap.Error(err))
+		return ""
+	}
+	return branch.Commit.SHA
 }
 
 // SortChannelResults sorts channels so present channels come first (preserving

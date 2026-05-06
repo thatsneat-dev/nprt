@@ -104,7 +104,7 @@ func TestCheckPR_MergedPR(t *testing.T) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/pulls/100"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"number": 100,
 				"title": "Test PR",
 				"state": "closed",
@@ -115,9 +115,9 @@ func TestCheckPR_MergedPR(t *testing.T) {
 			}`))
 		case strings.Contains(r.URL.Path, "/compare/"):
 			if strings.Contains(r.URL.Path, "master") {
-				w.Write([]byte(`{"status": "ahead", "ahead_by": 10, "behind_by": 0}`))
+				_, _ = w.Write([]byte(`{"status": "ahead", "ahead_by": 10, "behind_by": 0}`))
 			} else {
-				w.Write([]byte(`{"status": "behind", "ahead_by": 0, "behind_by": 5}`))
+				_, _ = w.Write([]byte(`{"status": "behind", "ahead_by": 0, "behind_by": 5}`))
 			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -158,10 +158,60 @@ func TestCheckPR_MergedPR(t *testing.T) {
 	}
 }
 
+func TestCheckPRWithOptions_NetgraphIncludesBranchHeads(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/pulls/101"):
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"number": 101,
+				"title": "Staging PR",
+				"state": "closed",
+				"merged": true,
+				"merge_commit_sha": "abc123def456789012",
+				"user": {"login": "testuser"},
+				"base": {"ref": "staging"}
+			}`))
+		case strings.Contains(r.URL.Path, "/branches/master"):
+			_, _ = w.Write([]byte(`{"name": "master", "commit": {"sha": "masterhead1234567890"}}`))
+		case strings.Contains(r.URL.Path, "/branches/staging-next"):
+			_, _ = w.Write([]byte(`{"name": "staging-next", "commit": {"sha": "staginghead123456"}}`))
+		case strings.Contains(r.URL.Path, "/compare/"):
+			_, _ = w.Write([]byte(`{"status": "ahead", "ahead_by": 10, "behind_by": 0}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := github.NewClient("", "", zap.NewNop())
+	client.BaseURL = server.URL
+	checker := core.NewChecker(client, zap.NewNop())
+
+	channels := []config.Channel{
+		{Name: "master", Branch: "master"},
+		{Name: "staging-next", Branch: "staging-next"},
+	}
+
+	status, err := checker.CheckPRWithOptions(context.Background(), 101, channels, core.CheckOptions{IncludeNetgraph: true})
+	if err != nil {
+		t.Fatalf("CheckPRWithOptions returned error: %v", err)
+	}
+
+	if status.BaseBranch != "staging" {
+		t.Errorf("BaseBranch = %q, want staging", status.BaseBranch)
+	}
+	for _, ch := range status.Channels {
+		if ch.HeadCommit == "" {
+			t.Errorf("channel %s should include head commit", ch.Name)
+		}
+	}
+}
+
 func TestCheckPR_UnmergedPR(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"number": 200,
 			"title": "Open PR",
 			"state": "open",
@@ -201,7 +251,7 @@ func TestCheckPR_ChannelError(t *testing.T) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/pulls/300"):
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"number": 300,
 				"title": "Test",
 				"state": "closed",
@@ -211,10 +261,10 @@ func TestCheckPR_ChannelError(t *testing.T) {
 				"base": {"ref": "master"}
 			}`))
 		case strings.Contains(r.URL.Path, "/compare/") && strings.Contains(r.URL.Path, "master"):
-			w.Write([]byte(`{"status": "ahead", "ahead_by": 10, "behind_by": 0}`))
+			_, _ = w.Write([]byte(`{"status": "ahead", "ahead_by": 10, "behind_by": 0}`))
 		case strings.Contains(r.URL.Path, "/compare/"):
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"message": "Not Found"}`))
+			_, _ = w.Write([]byte(`{"message": "Not Found"}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

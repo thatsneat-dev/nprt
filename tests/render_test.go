@@ -206,6 +206,45 @@ func TestRenderTable_UnknownStatus(t *testing.T) {
 	}
 }
 
+func TestRenderNetgraph_StagingPathWithHeadCommits(t *testing.T) {
+	status := &core.PRStatus{
+		Number:      476497,
+		State:       core.PRStateMerged,
+		BaseBranch:  "staging",
+		MergeCommit: "abc123def456789012",
+		Channels: []core.ChannelResult{
+			{Name: "master", Branch: "master", Status: core.StatusPresent, HeadCommit: "masterhead123456789"},
+			{Name: "staging-next", Branch: "staging-next", Status: core.StatusPresent, HeadCommit: "staginghead123456"},
+			{Name: "nixos-unstable", Branch: "nixos-unstable", Status: core.StatusNotPresent, HeadCommit: "unstablehead123456"},
+		},
+	}
+
+	var buf bytes.Buffer
+	renderer := render.NewRenderer(&buf, false, false)
+	err := renderer.RenderNetgraph(status)
+	if err != nil {
+		t.Fatalf("RenderNetgraph returned error: %v", err)
+	}
+
+	output := buf.String()
+	for _, want := range []string{
+		"NETGRAPH",
+		"PR merge abc123def456",
+		"base: staging",
+		"legend: ● present  ○ pending  ? unknown",
+		"staging-next",
+		"master",
+		"channels",
+		"├──────────────▶  ● staginghead1 ✓",
+		"├──────────────▶  ● masterhead12 ✓",
+		"└──────────────▶  ○ unstablehead ✗    nixos-unstable",
+	} {
+		if !strings.Contains(output, want) {
+			t.Errorf("RenderNetgraph output missing %q:\n%s", want, output)
+		}
+	}
+}
+
 func TestFormatError_WithColor(t *testing.T) {
 	msg := "something went wrong"
 	result := render.FormatError(msg, true)
