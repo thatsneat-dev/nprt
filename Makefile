@@ -4,12 +4,13 @@ BINARY_NAME := nprt
 BUILD_DIR := bin
 VERSION_FILE := VERSION
 VERSION := $(shell cat $(VERSION_FILE) 2>/dev/null || echo "0.0.0")
+GIT_SHORT := $(shell git rev-parse --short=6 HEAD 2>/dev/null || echo "unknown")
 
 # Detect if this is a CI build (set CI=true in CI environment)
 ifdef CI
 	BUILD_VERSION := $(VERSION)
 else
-	BUILD_VERSION := $(VERSION)-dev
+	BUILD_VERSION := $(VERSION)-$(GIT_SHORT)
 endif
 
 build:

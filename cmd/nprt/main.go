@@ -37,7 +37,7 @@ Options:
   --netgraph         Show an ASCII graph with branch head commits (table output only)
   --timeline-pages   Number of timeline pages to fetch for related PRs (default: 3)
   --verbose          Show detailed progress and debug information
-  --version          Print version and exit
+  -v, --version      Print version and exit
   -h, --help         Show this help message
 
 Environment:
@@ -49,6 +49,15 @@ func main() {
 }
 
 func run() int {
+	// Handle --version / -v before any flag parsing so it works regardless
+	// of how it's positioned among other args.
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-v" {
+			fmt.Println(version)
+			return 0
+		}
+	}
+
 	var (
 		channelsFlag  string
 		colorMode     string
@@ -57,7 +66,6 @@ func run() int {
 		netgraph      bool
 		timelinePages int
 		verbose       bool
-		showVersion   bool
 	)
 
 	flag.StringVar(&channelsFlag, "channels", "", "Comma-separated list of channels to check")
@@ -67,7 +75,6 @@ func run() int {
 	flag.BoolVar(&netgraph, "netgraph", false, "Show an ASCII graph with branch head commits")
 	flag.IntVar(&timelinePages, "timeline-pages", github.DefaultTimelinePages, "Number of timeline pages to fetch for related PRs")
 	flag.BoolVar(&verbose, "verbose", false, "Show detailed progress and debug information")
-	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
 
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
@@ -75,11 +82,6 @@ func run() int {
 
 	if err := flag.CommandLine.Parse(cli.ReorderArgs(flag.CommandLine, os.Args[1:])); err != nil {
 		return 2
-	}
-
-	if showVersion {
-		fmt.Printf("nprt version %s\n", version)
-		return 0
 	}
 
 	if timelinePages < 1 || timelinePages > 10 {

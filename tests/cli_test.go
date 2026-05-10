@@ -16,7 +16,6 @@ func testFlagSet() *flag.FlagSet {
 	fs.Bool("netgraph", false, "")
 	fs.Int("timeline-pages", 3, "")
 	fs.Bool("verbose", false, "")
-	fs.Bool("version", false, "")
 	return fs
 }
 
