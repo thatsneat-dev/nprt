@@ -160,6 +160,9 @@ func determinePRState(pr *github.PullRequest) PRState {
 }
 
 // checkChannel determines if a commit is present in the given channel branch.
+// When IncludeNetgraph is set, the branch HEAD lookup runs concurrently with
+// the compare request so both round-trips overlap instead of executing
+// sequentially per channel.
 func (c *Checker) checkChannel(ctx context.Context, commit string, ch config.Channel, opts CheckOptions) ChannelResult {
 	result := ChannelResult{
 		Name:   ch.Name,
@@ -167,14 +170,36 @@ func (c *Checker) checkChannel(ctx context.Context, commit string, ch config.Cha
 		Status: StatusUnknown,
 	}
 
+	var (
+		wg          sync.WaitGroup
+		compare     *github.CompareResult
+		compareErr  error
+		headCommit  string
+	)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		compare, compareErr = c.client.CompareCommitWithBranch(ctx, commit, ch.Branch)
+	}()
+
 	if opts.IncludeNetgraph {
-		result.HeadCommit = c.getBranchHeadCommit(ctx, ch)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			headCommit = c.getBranchHeadCommit(ctx, ch)
+		}()
 	}
 
-	compare, err := c.client.CompareCommitWithBranch(ctx, commit, ch.Branch)
-	if err != nil {
-		result.Error = err.Error()
-		c.log.Debug("channel check failed", zap.String("channel", ch.Name), zap.Error(err))
+	wg.Wait()
+
+	if opts.IncludeNetgraph {
+		result.HeadCommit = headCommit
+	}
+
+	if compareErr != nil {
+		result.Error = compareErr.Error()
+		c.log.Debug("channel check failed", zap.String("channel", ch.Name), zap.Error(compareErr))
 		return result
 	}
 

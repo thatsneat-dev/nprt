@@ -457,3 +457,87 @@ func TestRenderTable_NoErrorsNoWarning(t *testing.T) {
 		t.Errorf("did not expect error footer when no channel errors are present")
 	}
 }
+
+func TestRenderNetgraph_NestedLineage_NixosUnstableUnderSmall(t *testing.T) {
+	status := &core.PRStatus{
+		Number:      1,
+		State:       core.PRStateMerged,
+		BaseBranch:  "master",
+		MergeCommit: "deadbeefcafe",
+		Channels: []core.ChannelResult{
+			{Name: "master", Branch: "master", Status: core.StatusPresent, HeadCommit: "deadbeefcafe"},
+			{Name: "nixos-unstable", Branch: "nixos-unstable", Status: core.StatusPresent, HeadCommit: "fullhead12345"},
+			{Name: "nixos-unstable-small", Branch: "nixos-unstable-small", Status: core.StatusPresent, HeadCommit: "smallhead1234"},
+			{Name: "nixpkgs-unstable", Branch: "nixpkgs-unstable", Status: core.StatusPresent, HeadCommit: "pkgshead12345"},
+			{Name: "staging-next", Branch: "staging-next", Status: core.StatusPresent, HeadCommit: "stghead12345"},
+		},
+	}
+	var buf bytes.Buffer
+	renderer := render.NewRenderer(&buf, false, false)
+	if err := renderer.RenderNetgraph(status); err != nil {
+		t.Fatalf("RenderNetgraph: %v", err)
+	}
+	out := buf.String()
+
+	// nixos-unstable must appear as a nested child of nixos-unstable-small,
+	// not as a direct child of master.
+	for _, want := range []string{
+		"●  smallhead123  nixos-unstable-small",
+		"╰─●  fullhead1234  nixos-unstable",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected output to contain %q (lineage), got:\n%s", want, out)
+		}
+	}
+
+	// nixos-unstable must NOT appear with a top-level divergence prefix.
+	for _, unwanted := range []string{
+		"│ ●  fullhead1234  nixos-unstable\n",
+		"  ●  fullhead1234  nixos-unstable\n",
+	} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("nixos-unstable should not be rendered as top-level fan-out: %q\n%s", unwanted, out)
+		}
+	}
+}
+
+func TestRenderNetgraph_NestedLineage_OrphanFallsBackToTopLevel(t *testing.T) {
+	// nixos-unstable is checked but its parent (nixos-unstable-small) is not.
+	// In that case, render nixos-unstable as a top-level fan-out off master
+	// rather than dangling under a missing parent.
+	status := &core.PRStatus{
+		Number:      1,
+		State:       core.PRStateMerged,
+		BaseBranch:  "master",
+		MergeCommit: "deadbeefcafe",
+		Channels: []core.ChannelResult{
+			{Name: "master", Branch: "master", Status: core.StatusPresent, HeadCommit: "deadbeefcafe"},
+			{Name: "nixos-unstable", Branch: "nixos-unstable", Status: core.StatusPresent, HeadCommit: "fullhead12345"},
+			{Name: "nixpkgs-unstable", Branch: "nixpkgs-unstable", Status: core.StatusPresent, HeadCommit: "pkgshead12345"},
+		},
+	}
+	var buf bytes.Buffer
+	renderer := render.NewRenderer(&buf, false, false)
+	if err := renderer.RenderNetgraph(status); err != nil {
+		t.Fatalf("RenderNetgraph: %v", err)
+	}
+	out := buf.String()
+	// When the parent (nixos-unstable-small) isn't in the checked set,
+	// nixos-unstable should appear as a top-level fan-out off master:
+	// "  ├─●" or "  ╰─●" with no leading master-lane continuation char.
+	if !strings.Contains(out, "\n  ├─●  fullhead1234  nixos-unstable") &&
+		!strings.Contains(out, "\n  ╰─●  fullhead1234  nixos-unstable") {
+		t.Errorf("nixos-unstable should fan out off master when parent is unchecked, got:\n%s", out)
+	}
+	// And it must NOT appear with a master-lane prefix indicating nesting.
+	for _, nested := range []string{
+		"\n  │ ╰─●  fullhead1234  nixos-unstable",
+		"\n  │ ├─●  fullhead1234  nixos-unstable",
+		"\n    ╰─●  fullhead1234  nixos-unstable",
+		"\n    ├─●  fullhead1234  nixos-unstable",
+	} {
+		if strings.Contains(out, nested) {
+			t.Errorf("nixos-unstable should not be rendered as nested when its parent is unchecked: %q\n%s", nested, out)
+		}
+	}
+}

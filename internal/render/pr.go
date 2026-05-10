@@ -22,11 +22,11 @@ func (r *Renderer) RenderTable(status *core.PRStatus) error {
 		}
 	}
 
-	headerFmt := fmt.Sprintf("%%-%ds  STATUS\n", maxNameLen)
-	r.printf(headerFmt, "CHANNEL")
+	header := fmt.Sprintf("%-*s  STATUS", maxNameLen, "CHANNEL")
+	r.println(header)
 
 	dividerLen := maxNameLen + 2 + 6
-	r.println(strings.Repeat("-", dividerLen))
+	r.println(strings.Repeat("─", dividerLen))
 
 	rowFmt := fmt.Sprintf("%%-%ds  %%s\n", maxNameLen)
 	for _, ch := range status.Channels {
@@ -190,14 +190,108 @@ func (r *Renderer) renderNetgraph(status *core.PRStatus) {
 		return
 	}
 
-	// Fan-out section: channels branch off the terminal path branch.
-	for i, ch := range remaining {
-		connector := graphBranchTee
-		if i == len(remaining)-1 {
-			connector = graphBranchLastTee
+	// Group channels by lineage. Channels whose declared upstream is also
+	// a checked channel become nested children of that channel; everything
+	// else fans out directly off the terminal path branch.
+	groups := r.groupByLineage(remaining)
+
+	// Fan-out section: each root group hangs off the terminal path branch
+	// via a single-row connector (├─● for non-last, ╰─● for last). Nested
+	// children render directly under their parent on the next row, indented
+	// into the parent's lane and connected with the same ├─/╰─ glyphs.
+	for i, g := range groups {
+		isLast := i == len(groups)-1
+		rootConn := graphChildTee
+		laneCont := r.dim(graphStem) + " "
+		if isLast {
+			rootConn = graphChildLastTee
+			laneCont = "  "
 		}
-		r.printf("  %s%s\n", r.dim(connector), r.formatChannelRow(ch))
+		r.printf("  %s%s\n", r.dim(rootConn), r.formatChannelRow(g.root))
+
+		for j, child := range g.children {
+			childIsLast := j == len(g.children)-1
+			conn := graphChildTee
+			if childIsLast {
+				conn = graphChildLastTee
+			}
+			r.printf("  %s%s%s\n", laneCont, r.dim(conn), r.formatChannelRow(child))
+		}
 	}
+}
+
+type lineageGroup struct {
+	root     core.ChannelResult
+	children []core.ChannelResult
+}
+
+// groupByLineage partitions the remaining channels into root groups (which
+// fan out from the terminal branch) and nested children (which propagate
+// from another checked channel rather than directly from the terminal).
+func (r *Renderer) groupByLineage(remaining []core.ChannelResult) []lineageGroup {
+	indexByName := make(map[string]int, len(remaining))
+	for i, ch := range remaining {
+		indexByName[ch.Name] = i
+	}
+
+	childrenOf := make(map[string][]core.ChannelResult)
+	isChild := make(map[string]bool)
+	for _, ch := range remaining {
+		parent := channelParent(ch.Name)
+		if parent == "" {
+			continue
+		}
+		if _, ok := indexByName[parent]; !ok {
+			continue
+		}
+		childrenOf[parent] = append(childrenOf[parent], ch)
+		isChild[ch.Name] = true
+	}
+
+	groups := make([]lineageGroup, 0, len(remaining))
+	for _, ch := range remaining {
+		if isChild[ch.Name] {
+			continue
+		}
+		groups = append(groups, lineageGroup{root: ch, children: childrenOf[ch.Name]})
+	}
+	return groups
+}
+
+// channelParent returns the upstream branch a given nixpkgs channel name
+// typically receives commits from. Returns "" if no special lineage applies
+// (in which case the channel fans out directly from the propagation path's
+// terminal branch).
+func channelParent(name string) string {
+	switch name {
+	// Unstable channel lineage:
+	//   master ─┬─▶ nixpkgs-unstable
+	//           ├─▶ nixos-unstable-small ─▶ nixos-unstable
+	//           └─▶ staging-next   (back-merge)
+	case "nixpkgs-unstable", "nixos-unstable-small", "staging-next":
+		return "master"
+	case "nixos-unstable":
+		return "nixos-unstable-small"
+	}
+
+	// Release channel lineage mirrors unstable:
+	//   release-XX ─┬─▶ nixpkgs-XX
+	//               ├─▶ nixos-XX-small ─▶ nixos-XX
+	//               └─▶ staging-next-XX   (back-merge)
+	if release, ok := strings.CutPrefix(name, "nixpkgs-"); ok {
+		return "release-" + release
+	}
+	if release, ok := strings.CutPrefix(name, "staging-next-"); ok {
+		return "release-" + release
+	}
+	if rest, ok := strings.CutPrefix(name, "nixos-"); ok {
+		if release, ok := strings.CutSuffix(rest, "-small"); ok {
+			return "release-" + release
+		}
+		// nixos-XX → nixos-XX-small
+		return "nixos-" + rest + "-small"
+	}
+	return ""
 }
 
 func (r *Renderer) formatPathRow(step propagationStep, result core.ChannelResult, hasResult bool) string {
@@ -287,13 +381,13 @@ type propagationStep struct {
 }
 
 const (
-	graphStem          = "│"
-	graphBranchTee     = "├─"
-	graphBranchLastTee = "╰─"
-	graphMergeNode     = "◆"
-	graphPresentNode   = "●"
-	graphPendingNode   = "○"
-	graphUnknownNode   = "?"
+	graphStem         = "│"
+	graphChildTee     = "├─"
+	graphChildLastTee = "╰─"
+	graphMergeNode    = "◆"
+	graphPresentNode  = "●"
+	graphPendingNode  = "○"
+	graphUnknownNode  = "?"
 )
 
 func propagationPath(baseBranch string) []propagationStep {
