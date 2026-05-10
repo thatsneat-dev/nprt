@@ -34,7 +34,52 @@ func (r *Renderer) RenderTable(status *core.PRStatus) error {
 		r.printf(rowFmt, ch.Name, fmt.Sprintf("  %s  ", icon))
 	}
 
+	r.renderChannelErrors(status)
+
 	return r.writeErr
+}
+
+// renderChannelErrors surfaces any per-channel errors so users can see WHY a
+// channel reported unknown status (rate limits, auth failures, network errors)
+// rather than silently displaying "?" everywhere.
+func (r *Renderer) renderChannelErrors(status *core.PRStatus) {
+	type errEntry struct {
+		channel string
+		message string
+	}
+	var errs []errEntry
+	seen := make(map[string]bool)
+	for _, ch := range status.Channels {
+		if ch.Error == "" {
+			continue
+		}
+		errs = append(errs, errEntry{channel: ch.Name, message: ch.Error})
+		seen[ch.Error] = true
+	}
+	if len(errs) == 0 {
+		return
+	}
+
+	r.println()
+	// If every error shares the same message, surface it once with the count
+	// of affected channels rather than repeating it per row.
+	if len(seen) == 1 {
+		msg := errs[0].message
+		r.printf("%s  %s (%d channel", r.warnIcon(), msg, len(errs))
+		if len(errs) != 1 {
+			r.printf("s")
+		}
+		r.println(" affected)")
+		return
+	}
+	r.println(r.warnIcon() + "  channel checks reported errors:")
+	for _, e := range errs {
+		r.printf("    %s: %s\n", e.channel, e.message)
+	}
+}
+
+func (r *Renderer) warnIcon() string {
+	return r.colorize("!", colorYellow)
 }
 
 func (r *Renderer) renderPRStatusLine(status *core.PRStatus) {
@@ -112,172 +157,127 @@ func (r *Renderer) RenderNetgraph(status *core.PRStatus) error {
 
 func (r *Renderer) renderNetgraph(status *core.PRStatus) {
 	r.println()
-	r.println("NETGRAPH")
-	r.printf("  %s PR merge %s", graphMergeNode, shortCommit(status.MergeCommit))
+	r.printf("  %s  %s", r.bold(graphMergeNode), r.commitLink(status.MergeCommit))
 	if status.BaseBranch != "" {
-		r.printf(" (base: %s)", sanitize(status.BaseBranch))
+		r.printf("  %s %s", r.dim("base"), sanitize(status.BaseBranch))
 	}
-	r.println()
-	r.println("  legend: ● present  ○ pending  ? unknown")
 	r.println()
 
 	path := propagationPath(status.BaseBranch)
-	lanes := graphLanes(path)
-	r.renderGraphHeader(lanes)
-
 	results := channelResultsByBranch(status.Channels)
+
+	// Mark all path-branch channels so they're rendered in the path section
+	// rather than the channels fan-out.
 	rendered := make(map[string]bool)
-
-	r.renderGraphRow(lanes, map[string]string{
-		path[0].Branch: graphMergeNode + " " + shortCommit(status.MergeCommit),
-	}, "PR merge")
-
-	for i := 1; i < len(path); i++ {
-		previous := path[i-1]
-		current := path[i]
-		cells := map[string]string{
-			previous.Branch: graphMergeEdge,
-			current.Branch:  r.formatGraphStepNode(current, results[current.Branch]),
+	for _, step := range path {
+		if _, ok := results[step.Branch]; ok {
+			rendered[step.Branch] = true
 		}
-		if _, ok := results[current.Branch]; ok {
-			rendered[current.Branch] = true
-		}
-		r.renderGraphRow(lanes, cells, current.Edge)
 	}
-
-	if _, ok := results[path[0].Branch]; ok {
-		rendered[path[0].Branch] = true
-	}
-
 	remaining := remainingChannelResults(status.Channels, rendered)
+
+	stem := r.dim(graphStem)
+
+	// Path section: vertical chain of branches the commit flows through.
+	for i := 1; i < len(path); i++ {
+		current := path[i]
+		result, hasResult := results[current.Branch]
+		r.println("  " + stem)
+		r.printf("  %s\n", r.formatPathRow(current, result, hasResult))
+	}
+
 	if len(remaining) == 0 {
 		return
 	}
 
-	source := path[len(path)-1].Branch
-	for i, result := range remaining {
-		edge := graphMergeEdge
+	// Fan-out section: channels branch off the terminal path branch.
+	for i, ch := range remaining {
+		connector := graphBranchTee
 		if i == len(remaining)-1 {
-			edge = graphLastMergeEdge
+			connector = graphBranchLastTee
 		}
-		r.renderGraphRow(lanes, map[string]string{
-			source:           edge,
-			graphChannelLane: r.formatGraphChannelNode(result),
-		}, result.Name)
+		r.printf("  %s%s\n", r.dim(connector), r.formatChannelRow(ch))
 	}
 }
 
-func graphLanes(path []propagationStep) []string {
-	lanes := make([]string, 0, len(path)+1)
-	seen := make(map[string]bool, len(path)+1)
-	for _, step := range path {
-		if !seen[step.Branch] {
-			lanes = append(lanes, step.Branch)
-			seen[step.Branch] = true
-		}
-	}
-	lanes = append(lanes, graphChannelLane)
-	return lanes
-}
-
-func (r *Renderer) renderGraphHeader(lanes []string) {
-	cells := make(map[string]string, len(lanes))
-	for _, lane := range lanes {
-		cells[lane] = lane
-	}
-	r.renderGraphRow(lanes, cells, "")
-	r.renderGraphDivider(lanes)
-}
-
-func (r *Renderer) renderGraphDivider(lanes []string) {
-	r.printf("  ")
-	for i := range lanes {
-		if i > 0 {
-			r.printf("  ")
-		}
-		r.printf("%s", strings.Repeat("─", graphCellWidth))
-	}
-	r.println()
-}
-
-func (r *Renderer) renderGraphRow(lanes []string, cells map[string]string, note string) {
-	r.printf("  ")
-	for i, lane := range lanes {
-		if i > 0 {
-			r.printf("  ")
-		}
-		cell := cells[lane]
-		if cell == "" {
-			cell = graphLaneLine
-		}
-		r.printf("%s", padGraphCell(cell))
-	}
-	if note != "" {
-		r.printf("  %s", sanitize(note))
-	}
-	r.println()
-}
-
-func (r *Renderer) formatGraphStepNode(step propagationStep, result core.ChannelResult) string {
-	if result.Name == "" {
-		return graphPresentNode + " " + step.Branch
-	}
-	return r.formatGraphChannelNode(result)
-}
-
-func (r *Renderer) formatGraphChannelNode(ch core.ChannelResult) string {
-	parts := []string{r.graphNodeForStatus(ch.Status)}
-	if ch.HeadCommit != "" {
-		parts = append(parts, shortCommit(ch.HeadCommit))
+func (r *Renderer) formatPathRow(step propagationStep, result core.ChannelResult, hasResult bool) string {
+	var glyph, commit string
+	if !hasResult {
+		glyph = r.colorize(graphPresentNode, colorGreen)
+		commit = r.commitCell("", false)
 	} else {
-		parts = append(parts, "?")
+		glyph = r.graphNodeForStatus(result.Status)
+		commit = r.commitCell(result.HeadCommit, result.Status == core.StatusPresent)
 	}
-	parts = append(parts, r.formatChannelStatus(ch.Status))
-	return strings.Join(parts, " ")
+	return fmt.Sprintf("%s  %s  %s", glyph, commit, step.Branch)
+}
+
+func (r *Renderer) formatChannelRow(ch core.ChannelResult) string {
+	return fmt.Sprintf("%s  %s  %s",
+		r.graphNodeForStatus(ch.Status),
+		r.commitCell(ch.HeadCommit, ch.Status == core.StatusPresent),
+		ch.Name)
+}
+
+// commitCell returns a fixed-width 12-char cell. When show is true and a
+// commit is present, the short SHA is rendered (and OSC-8 linked when
+// hyperlinks are enabled). Otherwise the cell is blank, preserving column
+// alignment. Padding is appended after any escape sequences so the visible
+// width is always 12.
+func (r *Renderer) commitCell(commit string, show bool) string {
+	pad := strings.Repeat(" ", 12)
+	if !show || commit == "" {
+		return pad
+	}
+	short := shortCommit(commit)
+	trail := ""
+	if n := 12 - len(short); n > 0 {
+		trail = strings.Repeat(" ", n)
+	}
+	if !r.useHyperlinks {
+		return short + trail
+	}
+	url := fmt.Sprintf("https://github.com/NixOS/nixpkgs/commit/%s", commit)
+	return wrapHyperlink(short, url) + trail
+}
+
+// commitLink wraps the short SHA in an OSC 8 hyperlink without padding.
+func (r *Renderer) commitLink(commit string) string {
+	short := shortCommit(commit)
+	if commit == "" || !r.useHyperlinks {
+		return short
+	}
+	url := fmt.Sprintf("https://github.com/NixOS/nixpkgs/commit/%s", commit)
+	return wrapHyperlink(short, url)
 }
 
 func (r *Renderer) graphNodeForStatus(status core.ChannelStatus) string {
-	node := graphUnknownNode
-	color := colorYellow
 	switch status {
 	case core.StatusPresent:
-		node = graphPresentNode
-		color = colorGreen
+		return r.colorize(graphPresentNode, colorGreen)
 	case core.StatusNotPresent:
-		node = graphPendingNode
-		color = colorRed
+		return r.colorize(graphPendingNode, colorRed)
+	default:
+		return r.colorize(graphUnknownNode, colorYellow)
 	}
+}
+
+func (r *Renderer) colorize(s, color string) string {
 	if r.useColor {
-		return color + node + colorReset
+		return color + s + colorReset
 	}
-	return node
+	return s
 }
 
-func padGraphCell(cell string) string {
-	visible := visibleWidth(cell)
-	if visible >= graphCellWidth {
-		return cell
-	}
-	return cell + strings.Repeat(" ", graphCellWidth-visible)
+func (r *Renderer) dim(s string) string {
+	return r.colorize(s, colorGray)
 }
 
-func visibleWidth(s string) int {
-	width := 0
-	inEscape := false
-	for i := 0; i < len(s); i++ {
-		if inEscape {
-			if s[i] == 'm' {
-				inEscape = false
-			}
-			continue
-		}
-		if s[i] == '\x1b' {
-			inEscape = true
-			continue
-		}
-		width++
+func (r *Renderer) bold(s string) string {
+	if r.useColor {
+		return colorBold + s + colorReset
 	}
-	return width
+	return s
 }
 
 type propagationStep struct {
@@ -287,14 +287,12 @@ type propagationStep struct {
 }
 
 const (
-	graphCellWidth     = 22
-	graphChannelLane   = "channels"
-	graphLaneLine      = "│"
-	graphMergeEdge     = "├──────────────▶"
-	graphLastMergeEdge = "└──────────────▶"
+	graphStem          = "│"
+	graphBranchTee     = "├─"
+	graphBranchLastTee = "╰─"
 	graphMergeNode     = "◆"
-	graphPendingNode   = "○"
 	graphPresentNode   = "●"
+	graphPendingNode   = "○"
 	graphUnknownNode   = "?"
 )
 

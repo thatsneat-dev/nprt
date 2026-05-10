@@ -228,19 +228,27 @@ func TestRenderNetgraph_StagingPathWithHeadCommits(t *testing.T) {
 
 	output := buf.String()
 	for _, want := range []string{
-		"NETGRAPH",
-		"PR merge abc123def456",
-		"base: staging",
-		"legend: ● present  ○ pending  ? unknown",
-		"staging-next",
-		"master",
-		"channels",
-		"├──────────────▶  ● staginghead1 ✓",
-		"├──────────────▶  ● masterhead12 ✓",
-		"└──────────────▶  ○ unstablehead ✗    nixos-unstable",
+		"◆  abc123def456",
+		"base staging",
+		"●  staginghead1  staging-next",
+		"●  masterhead12  master",
+		"╰─○                nixos-unstable",
 	} {
 		if !strings.Contains(output, want) {
 			t.Errorf("RenderNetgraph output missing %q:\n%s", want, output)
+		}
+	}
+
+	for _, unwanted := range []string{
+		"NETGRAPH",
+		"legend:",
+		"channels",
+		"──────────────▶",
+		"◀╌",          // provenance arrows removed
+		"unstablehead", // pending channel HEAD must not be shown
+	} {
+		if strings.Contains(output, unwanted) {
+			t.Errorf("RenderNetgraph output should not contain %q:\n%s", unwanted, output)
 		}
 	}
 }
@@ -377,5 +385,75 @@ func TestRenderIssueWarning_IssueStates(t *testing.T) {
 		if !strings.Contains(result, tc.expected) {
 			t.Errorf("state=%s: expected output to contain %q, got: %s", tc.state, tc.expected, result)
 		}
+	}
+}
+
+func TestRenderTable_SurfacesSharedChannelError(t *testing.T) {
+	rateLimit := "GitHub API rate limit exceeded. Try again later or set GITHUB_TOKEN."
+	status := &core.PRStatus{
+		Number: 476497,
+		State:  core.PRStateMerged,
+		Channels: []core.ChannelResult{
+			{Name: "master", Branch: "master", Status: core.StatusUnknown, Error: rateLimit},
+			{Name: "nixpkgs-unstable", Branch: "nixpkgs-unstable", Status: core.StatusUnknown, Error: rateLimit},
+			{Name: "nixos-unstable", Branch: "nixos-unstable", Status: core.StatusUnknown, Error: rateLimit},
+		},
+	}
+	var buf bytes.Buffer
+	renderer := render.NewRenderer(&buf, false, false)
+	if err := renderer.RenderTable(status); err != nil {
+		t.Fatalf("RenderTable: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, rateLimit) {
+		t.Errorf("expected output to surface the shared error message, got:\n%s", out)
+	}
+	if !strings.Contains(out, "3 channels affected") {
+		t.Errorf("expected output to include count of affected channels, got:\n%s", out)
+	}
+}
+
+func TestRenderTable_SurfacesPerChannelErrors(t *testing.T) {
+	status := &core.PRStatus{
+		Number: 1,
+		State:  core.PRStateMerged,
+		Channels: []core.ChannelResult{
+			{Name: "master", Branch: "master", Status: core.StatusPresent},
+			{Name: "nixos-unstable", Branch: "nixos-unstable", Status: core.StatusUnknown, Error: "context deadline exceeded"},
+			{Name: "nixpkgs-unstable", Branch: "nixpkgs-unstable", Status: core.StatusUnknown, Error: "404 Not Found"},
+		},
+	}
+	var buf bytes.Buffer
+	renderer := render.NewRenderer(&buf, false, false)
+	if err := renderer.RenderTable(status); err != nil {
+		t.Fatalf("RenderTable: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"channel checks reported errors:",
+		"nixos-unstable: context deadline exceeded",
+		"nixpkgs-unstable: 404 Not Found",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected output to contain %q, got:\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderTable_NoErrorsNoWarning(t *testing.T) {
+	status := &core.PRStatus{
+		Number: 1,
+		State:  core.PRStateMerged,
+		Channels: []core.ChannelResult{
+			{Name: "master", Branch: "master", Status: core.StatusPresent},
+		},
+	}
+	var buf bytes.Buffer
+	renderer := render.NewRenderer(&buf, false, false)
+	if err := renderer.RenderTable(status); err != nil {
+		t.Fatalf("RenderTable: %v", err)
+	}
+	if strings.Contains(buf.String(), "channel checks reported errors") {
+		t.Errorf("did not expect error footer when no channel errors are present")
 	}
 }
