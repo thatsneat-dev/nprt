@@ -171,10 +171,10 @@ func (c *Checker) checkChannel(ctx context.Context, commit string, ch config.Cha
 	}
 
 	var (
-		wg          sync.WaitGroup
-		compare     *github.CompareResult
-		compareErr  error
-		headCommit  string
+		wg         sync.WaitGroup
+		compare    *github.CompareResult
+		compareErr error
+		headCommit string
 	)
 
 	wg.Add(1)

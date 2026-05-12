@@ -157,7 +157,7 @@ func (r *Renderer) RenderNetgraph(status *core.PRStatus) error {
 
 func (r *Renderer) renderNetgraph(status *core.PRStatus) {
 	r.println()
-	r.printf("  %s  %s", r.bold(graphMergeNode), r.commitLink(status.MergeCommit))
+	r.printf("  %s  %s", r.boldColor(graphMergeNode, colorPurple), r.commitLink(status.MergeCommit))
 	if status.BaseBranch != "" {
 		r.printf("  %s %s", r.dim("base"), sanitize(status.BaseBranch))
 	}
@@ -367,9 +367,11 @@ func (r *Renderer) dim(s string) string {
 	return r.colorize(s, colorGray)
 }
 
-func (r *Renderer) bold(s string) string {
+// boldColor renders s with both bold + color attributes using a single
+// prefix/suffix pair so they don't reset each other.
+func (r *Renderer) boldColor(s, color string) string {
 	if r.useColor {
-		return colorBold + s + colorReset
+		return colorBold + color + s + colorReset
 	}
 	return s
 }
@@ -398,22 +400,27 @@ func propagationPath(baseBranch string) []propagationStep {
 			{Branch: "staging-next", Edge: "manual staging batch", Note: "Hydra staging jobset"},
 			{Branch: "master", Edge: "manual PR", Note: "unstable source"},
 		}
-	case strings.HasPrefix(baseBranch, "staging-") && !strings.HasPrefix(baseBranch, "staging-next-"):
-		release := strings.TrimPrefix(baseBranch, "staging-")
-		return []propagationStep{
-			{Branch: baseBranch, Edge: "merged to release staging", Note: "stable mass rebuild batch"},
-			{Branch: "staging-next-" + release, Edge: "manual staging batch", Note: "Hydra staging jobset"},
-			{Branch: "release-" + release, Edge: "manual PR", Note: "stable channel source"},
-		}
 	case baseBranch == "staging-nixos":
+		// staging-nixos is not a stable mass-rebuild branch — it back-merges
+		// into master. Match before the generic staging-* case below.
 		return []propagationStep{
 			{Branch: "staging-nixos", Edge: "merged to staging-nixos", Note: "NixOS tests/kernel batch"},
 			{Branch: "master", Edge: "manual PR", Note: "unstable source"},
 		}
 	case strings.HasPrefix(baseBranch, "staging-next"):
+		// Both "staging-next" and "staging-next-YY.MM" forward to their
+		// channel branch. Match before the generic staging-* case below so
+		// "staging-next" doesn't get mis-parsed as release="next".
 		return []propagationStep{
 			{Branch: baseBranch, Edge: "merged to staging-next", Note: "staging fixup"},
 			{Branch: destinationFromStagingNext(baseBranch), Edge: "manual PR", Note: "channel source"},
+		}
+	case strings.HasPrefix(baseBranch, "staging-"):
+		release := strings.TrimPrefix(baseBranch, "staging-")
+		return []propagationStep{
+			{Branch: baseBranch, Edge: "merged to release staging", Note: "stable mass rebuild batch"},
+			{Branch: "staging-next-" + release, Edge: "manual staging batch", Note: "Hydra staging jobset"},
+			{Branch: "release-" + release, Edge: "manual PR", Note: "stable channel source"},
 		}
 	case strings.HasPrefix(baseBranch, "release-"):
 		return []propagationStep{

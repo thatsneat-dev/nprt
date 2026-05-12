@@ -244,7 +244,7 @@ func TestRenderNetgraph_StagingPathWithHeadCommits(t *testing.T) {
 		"legend:",
 		"channels",
 		"──────────────▶",
-		"◀╌",          // provenance arrows removed
+		"◀╌",           // provenance arrows removed
 		"unstablehead", // pending channel HEAD must not be shown
 	} {
 		if strings.Contains(output, unwanted) {

@@ -55,7 +55,7 @@ nprt --verbose 475593
 by: someone
 
 CHANNEL               STATUS
-----------------------------
+────────────────────────────
 master                  ✓
 staging-next            ✓
 nixpkgs-unstable        ✓
@@ -63,28 +63,40 @@ nixos-unstable-small    ✓
 nixos-unstable          ✗
 ```
 
-With `--netgraph`, nprt keeps the table output and appends a graph showing the
-likely nixpkgs propagation path plus the current head commit for each checked
-channel branch:
+If any channel checks fail (for example, GitHub returns a rate-limit 403),
+those rows show `?` and the underlying error is summarized below the table:
 
 ```
-NETGRAPH
-  ◆ PR merge abc123def456 (base: staging)
-  legend: ● present  ○ pending  ? unknown
-
-  staging                 staging-next            master                  channels
-  ──────────────────────  ──────────────────────  ──────────────────────  ──────────────────────
-  ◆ abc123def456          │                       │                       │                       PR merge
-  ├──────────────▶        ● feedface1234 ✓        │                       │                       manual staging batch
-  │                       ├──────────────▶        ● cafe1234beef ✓        │                       manual PR
-  │                       │                       ├──────────────▶        ○ deadbeef1234 ✗        nixpkgs-unstable
-  │                       │                       ├──────────────▶        ○ badc0ffee123 ✗        nixos-unstable
-  │                       │                       └──────────────▶        ● facefeed1234 ✓        nixos-unstable-small
+!  GitHub API rate limit exceeded. Try again later or set GITHUB_TOKEN. (3 channels affected)
 ```
 
-The PR state icon and author line are shown for merged PRs. In terminals with
-Nerd Fonts installed, state-specific icons are displayed (`\uf419` for merged,
-`\uf407` for open, etc.). Set `NO_NERD_FONTS=1` to use a simple dot (●) instead.
+With `--netgraph`, nprt keeps the table output and appends a compact
+git-log-style graph showing the propagation path the PR's merge commit
+follows and a fan-out of the remaining checked channels:
+
+```
+  ◆  abc123def456  base staging
+  │
+  ●  stgnxhead123  staging-next
+  │
+  ●  masterhead12  master
+  ├─●  smallhead123  nixos-unstable-small
+  │ ╰─○                nixos-unstable
+  ╰─●  pkgshead1234  nixpkgs-unstable
+```
+
+Glyph legend: `◆` is the PR's merge commit, `●` (green) means the PR is
+present on that branch, `○` (red) means it is not yet there, and `?`
+(yellow) means the check could not be completed. The 12-character SHA
+column shows the branch HEAD commit for **present** channels only — for
+pending or unknown channels the cell is left blank because the branch
+HEAD has no relationship to the PR. All SHAs are clickable in terminals
+that support OSC 8 hyperlinks.
+
+The PR state icon reflects the current PR state; the author line is shown
+when author data is available. In terminals with Nerd Fonts installed,
+state-specific icons are displayed (`\uf419` for merged, `\uf407` for open,
+etc.). Set `NO_NERD_FONTS=1` to use a simple dot (●) instead.
 
 Hyperlinks (OSC 8) are controlled independently from colors. Use `--hyperlinks`
 to override auto-detection, or set `NO_HYPERLINKS=1` to disable. Note that
@@ -100,7 +112,7 @@ to override auto-detection, or set `NO_HYPERLINKS=1` to disable. Note that
 | `--json`     | Output results as JSON                                  |
 | `--netgraph` | Append an ASCII propagation graph with branch commit IDs |
 | `--verbose`  | Show detailed progress and debug information            |
-| `--version`  | Print version and exit                                  |
+| `-v, --version` | Print version and exit                               |
 | `--timeline-pages` | Max pages of timeline to fetch for related PRs (default: 3) |
 | `-h, --help` | Show help message                                       |
 

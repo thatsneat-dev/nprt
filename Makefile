@@ -1,4 +1,7 @@
-.PHONY: build test format-check format vuln-check clean version-bump release-prep man
+.PHONY: build test format-check format vuln-check clean version-bump release-prep man version-check release-notes-check
+
+# Branch to compare against in version-check; override in CI with `make version-check BASE_BRANCH=$(github.base_ref)`.
+BASE_BRANCH ?= main
 
 BINARY_NAME := nprt
 BUILD_DIR := bin
@@ -67,6 +70,43 @@ man:
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+# Verify VERSION has been bumped relative to the base branch (default: main).
+version-check:
+	@set -e; \
+	git fetch --no-tags --depth=1 origin $(BASE_BRANCH) 2>/dev/null || true; \
+	if git rev-parse --verify --quiet origin/$(BASE_BRANCH) >/dev/null; then \
+		REF=origin/$(BASE_BRANCH); \
+	else \
+		REF=$(BASE_BRANCH); \
+	fi; \
+	BASE_VERSION=$$(git show $$REF:VERSION 2>/dev/null || echo ""); \
+	PR_VERSION=$$(cat $(VERSION_FILE)); \
+	if [ -z "$$BASE_VERSION" ]; then \
+		echo "Could not read VERSION from $$REF; skipping version check."; \
+		exit 0; \
+	fi; \
+	if [ "$$BASE_VERSION" = "$$PR_VERSION" ]; then \
+		echo "VERSION has not been bumped (still $$PR_VERSION on $$REF)."; \
+		echo "Run 'make version-bump TYPE=patch|minor|major' before merging."; \
+		exit 1; \
+	fi; \
+	echo "Version bumped: $$BASE_VERSION -> $$PR_VERSION"
+
+# Verify release notes exist for the current VERSION.
+release-notes-check:
+	@VERSION=$$(cat $(VERSION_FILE)); \
+	NOTES="docs/release-notes-v$${VERSION}.md"; \
+	if [ ! -f "$$NOTES" ]; then \
+		echo "Missing release notes at $$NOTES"; \
+		echo "Create the file with the changes for v$${VERSION} before merging."; \
+		exit 1; \
+	fi; \
+	if [ ! -s "$$NOTES" ]; then \
+		echo "Release notes file $$NOTES is empty."; \
+		exit 1; \
+	fi; \
+	echo "Release notes found: $$NOTES"
 
 # Version bumping targets
 # Usage: make version-bump TYPE=patch|minor|major
